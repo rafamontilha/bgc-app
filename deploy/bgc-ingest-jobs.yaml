@@ -1,0 +1,61 @@
+﻿apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bgc-ingest-health
+  namespace: data
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: ingest
+          image: bgc/bgc-ingest:dev
+          args: ["health"]
+          env:
+            - name: PGHOST
+              value: pg-postgresql.data.svc.cluster.local
+            - name: PGUSER
+              value: postgres
+            - name: PGDATABASE
+              value: postgres
+            - name: PGPORT
+              value: "5432"
+            - name: PGSSLMODE
+              value: disable
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-postgresql
+                  key: postgres-password
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bgc-ingest-insert-sample
+  namespace: data
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: ingest
+          image: bgc/bgc-ingest:dev
+          args: ["insert-sample"]
+          env:
+            - name: PGHOST
+              value: pg-postgresql.data.svc.cluster.local
+            - name: PGUSER
+              value: postgres
+            - name: PGDATABASE
+              value: postgres
+            - name: PGPORT
+              value: "5432"
+            - name: PGSSLMODE
+              value: disable
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-postgresql
+                  key: postgres-password

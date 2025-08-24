@@ -1,0 +1,23 @@
+﻿# Binaries / builds
+bin/
+build/
+dist/
+*.exe
+*.dll
+*.so
+*.out
+
+# Go
+vendor/
+.coverage/
+*.test
+
+# Editor/OS
+*.swp
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs e artefatos temporários
+*.log

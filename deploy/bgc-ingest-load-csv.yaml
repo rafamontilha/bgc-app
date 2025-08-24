@@ -1,0 +1,45 @@
+﻿apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bgc-ingest-load-csv
+  namespace: data
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      volumes:
+        - name: datacsv
+          configMap:
+            name: bgc-sample-csv
+      containers:
+        - name: ingest
+          image: bgc/bgc-ingest:dev-20250820213009
+          # CSV acima usa vírgula e ponto, então:
+          args:
+            - load-csv
+            - --path=/data/sample.csv
+            - --sep=,
+            - --dec=.
+            - --header=true
+
+          env:
+            - name: PGHOST
+              value: pg-postgresql.data.svc.cluster.local
+            - name: PGUSER
+              value: postgres
+            - name: PGDATABASE
+              value: postgres
+            - name: PGPORT
+              value: "5432"
+            - name: PGSSLMODE
+              value: disable
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-postgresql
+                  key: postgres-password
+          volumeMounts:
+            - name: datacsv
+              mountPath: /data
+              readOnly: true

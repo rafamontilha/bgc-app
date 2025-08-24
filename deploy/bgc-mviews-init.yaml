@@ -1,0 +1,29 @@
+﻿apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bgc-mviews-init
+  namespace: data
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      volumes:
+        - name: sql
+          configMap:
+            name: bgc-sql-mviews
+      containers:
+        - name: psql
+          image: docker.io/bitnami/postgresql:17.6.0-debian-12-r0
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-postgresql
+                  key: postgres-password
+          command: ["/opt/bitnami/postgresql/bin/psql"]
+          args: ["-h","pg-postgresql","-U","postgres","-d","postgres","-p","5432","-v","ON_ERROR_STOP=1","-f","/sql/mviews.sql"]
+          volumeMounts:
+            - name: sql
+              mountPath: /sql
+              readOnly: true
