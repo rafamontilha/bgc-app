@@ -1,0 +1,46 @@
+# BGC Analytics - Script de comandos principais
+# Uso: .\bgc.ps1 <comando>
+# Exemplo: .\bgc.ps1 setup
+
+param(
+    [Parameter(Position=0)]
+    [string]$Command = "help",
+    [string]$Namespace = "default",
+    [string]$ClusterName = "bgc"
+)
+
+$ApiImage = "bgc/api:dev"
+$IngestImage = "bgc/ingest:dev"
+
+function Show-Help {
+    Write-Host "BGC Analytics - Comandos disponíveis:" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "🚀 Setup e Deploy:" -ForegroundColor Yellow
+    Write-Host "  setup        - Configura ambiente completo (cluster + postgres)"
+    Write-Host "  build        - Faz build de todas as imagens"
+    Write-Host "  import       - Importa imagens no k3d"
+    Write-Host "  deploy       - Deploy completo (API + ingest)"
+    Write-Host "  dev          - Pipeline completo (build + import + deploy)"
+    Write-Host ""
+    Write-Host "📊 Monitoramento:" -ForegroundColor Yellow
+    Write-Host "  status       - Mostra status dos pods e serviços"
+    Write-Host "  logs-api     - Mostra logs da API"
+    Write-Host "  logs-ingest  - Mostra logs do último job de ingest"
+    Write-Host "  test         - Testa conectividade da API"
+    Write-Host ""
+    Write-Host "🔧 Operação:" -ForegroundColor Yellow
+    Write-Host "  port-forward - Inicia port-forward da API (porta 3000)"
+    Write-Host "  psql         - Acessa PostgreSQL via cliente"
+    Write-Host "  load-sample  - Carrega dados de exemplo"
+    Write-Host "  refresh-mv   - Atualiza Materialized Views"
+    Write-Host ""
+    Write-Host "🛠️ Manutenção:" -ForegroundColor Yellow
+    Write-Host "  reboot-fix   - Corrige problemas pós-reboot"
+    Write-Host "  clean-jobs   - Remove jobs antigos"
+    Write-Host "  clean        - Remove cluster completamente (CUIDADO!)"
+    Write-Host ""
+    Write-Host "Exemplo de uso: .\bgc.ps1 setup" -ForegroundColor Cyan
+}
+
+function Invoke-Setup {
+    Write-Host "🚀 
