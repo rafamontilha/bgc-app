@@ -8,6 +8,10 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      volumes:
+        - name: sql
+          configMap:
+            name: bgc-mviews-refresh-sql
       containers:
         - name: psql
           image: docker.io/bitnami/postgresql:17.6.0-debian-12-r0
@@ -17,20 +21,23 @@ spec:
                 secretKeyRef:
                   name: pg-postgresql
                   key: postgres-password
-          # use o entrypoint da Bitnami e passe o psql como comando
-          command: ["/opt/bitnami/scripts/postgresql/entrypoint.sh", "/opt/bitnami/postgresql/bin/psql"]
+          command:
+            - /opt/bitnami/scripts/postgresql/entrypoint.sh
+            - /opt/bitnami/postgresql/bin/psql
           args:
-            - "-h"              # host
-            - "pg-postgresql"
-            - "-U"              # user
-            - "postgres"
-            - "-d"              # database
-            - "postgres"
-            - "-p"              # port
+            - -h
+            - pg-postgresql
+            - -U
+            - postgres
+            - -d
+            - postgres
+            - -p
             - "5432"
-            - "-v"              # aborta em erro de SQL
-            - "ON_ERROR_STOP=1"
-            - "-c"
-            - "REFRESH MATERIALIZED VIEW CONCURRENTLY rpt.mv_exportacao_resumo;"
-            - "-c"
-            - "REFRESH MATERIALIZED VIEW CONCURRENTLY rpt.mv_exportacao_por_pais;"
+            - -v
+            - ON_ERROR_STOP=1
+            - -f
+            - /sql/refresh.sql
+          volumeMounts:
+            - name: sql
+              mountPath: /sql
+              readOnly: true

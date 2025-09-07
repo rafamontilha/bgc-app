@@ -8,6 +8,10 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      volumes:
+        - name: migrations
+          configMap:
+            name: bgc-migration-0001   # < bate com o ConfigMap acima
       containers:
         - name: migrate
           image: docker.io/bitnami/postgresql:17.6.0-debian-12-r0
@@ -17,18 +21,23 @@ spec:
                 secretKeyRef:
                   name: pg-postgresql
                   key: postgres-password
-          volumeMounts:
-            - name: migrations
-              mountPath: /migrations
           command:
             - /opt/bitnami/scripts/postgresql/entrypoint.sh
-            - /bin/bash
-            - -lc
-            - /opt/bitnami/postgresql/bin/psql -h pg-postgresql -U postgres -d postgres -p 5432 -f /migrations/0001_init.sql
-      volumes:
-        - name: migrations
-          configMap:
-            name: bgc-migration-0001
-            items:
-              - key: 0001_init.sql
-                path: 0001_init.sql
+            - /opt/bitnami/postgresql/bin/psql
+          args:
+            - -h
+            - pg-postgresql
+            - -U
+            - postgres
+            - -d
+            - postgres
+            - -p
+            - "5432"
+            - -v
+            - ON_ERROR_STOP=1
+            - -f
+            - /sql/migrate.sql
+          volumeMounts:
+            - name: migrations
+              mountPath: /sql
+              readOnly: true

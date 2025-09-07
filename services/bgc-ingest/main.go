@@ -21,6 +21,7 @@ import (
 	"strconv"        // conversão string->int/float
 	"strings"        // utilidades de string (trim, replace, etc.)
 	excelize "github.com/xuri/excelize/v2"
+	"time"
 	"github.com/jackc/pgx/v5/pgxpool" // pool de conexões com Postgres
 )
 

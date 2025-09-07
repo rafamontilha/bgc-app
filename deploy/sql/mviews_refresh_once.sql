@@ -1,0 +1,2 @@
+﻿REFRESH MATERIALIZED VIEW CONCURRENTLY rpt.mv_exportacao_resumo;
+REFRESH MATERIALIZED VIEW CONCURRENTLY rpt.mv_exportacao_por_pais;

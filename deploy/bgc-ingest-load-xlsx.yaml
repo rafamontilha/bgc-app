@@ -14,7 +14,7 @@ spec:
             name: bgc-sample-xlsx
       containers:
         - name: ingest
-          image: bgc/bgc-ingest:dev-20250821235431
+          image: bgc/bgc-ingest:dev
           imagePullPolicy: IfNotPresent
           args:
             - load-xlsx
@@ -41,3 +41,6 @@ spec:
             - name: dataxlsx
               mountPath: /data
               readOnly: true
+
+
+

@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: bgc/bgc-api:dev-20250823005841
+          image: bgc/bgc-api:dev
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

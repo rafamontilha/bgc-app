@@ -8,6 +8,10 @@ spec:
   template:
     spec:
       restartPolicy: Never
+      volumes:
+        - name: sql
+          configMap:
+            name: bgc-mviews-populate-sql
       containers:
         - name: psql
           image: docker.io/bitnami/postgresql:17.6.0-debian-12-r0
@@ -31,7 +35,9 @@ spec:
             - "5432"
             - -v
             - ON_ERROR_STOP=1
-            - -c
-            - |
-              REFRESH MATERIALIZED VIEW rpt.mv_exportacao_resumo;
-              REFRESH MATERIALIZED VIEW rpt.mv_exportacao_por_pais;
+            - -f
+            - /sql/populate.sql
+          volumeMounts:
+            - name: sql
+              mountPath: /sql
+              readOnly: true

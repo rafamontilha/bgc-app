@@ -9,7 +9,7 @@ spec:
     spec:
       restartPolicy: Never
       volumes:
-        - name: sql
+        - name: migrations
           configMap:
             name: bgc-migrate-0002
       containers:
@@ -38,6 +38,6 @@ spec:
             - -f
             - /sql/migrate.sql
           volumeMounts:
-            - name: sql
+            - name: migrations
               mountPath: /sql
               readOnly: true
