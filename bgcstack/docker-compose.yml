@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16
+    container_name: bgc_db
+    environment:
+      POSTGRES_USER: bgc
+      POSTGRES_PASSWORD: bgc
+      POSTGRES_DB: bgc
+    ports:
+      - "5432:5432"
+    volumes:
+      # Executa todos os .sql em ../db/init na 1ª vez que o volume estiver vazio
+      - ../db/init:/docker-entrypoint-initdb.d:ro
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bgc -d bgc || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: bgc_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@bgc.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    restart: unless-stopped
+    
+  api:
+    build: ../api
+    container_name: bgc_api
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: bgc
+      DB_PASS: bgc
+      DB_NAME: bgc
+      PORT: "8080"
+      # overrides opcionais:
+      # SCOPE_CHAPTERS: "02,08,84,85"
+      # SOM_BASE: "0.015"
+      # SOM_AGGRESSIVE: "0.03"
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data: {}
+  pgadmin_data: {}

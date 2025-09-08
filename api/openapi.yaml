@@ -1,0 +1,389 @@
+openapi: 3.0.3
+info:
+  title: BGC Onda 1 — API Analítica (Sprint 2)
+  version: 0.2.0
+  description: API para análise de dados de exportação com métricas TAM/SAM/SOM e comparação de rotas comerciais
+servers:
+  - url: http://localhost:8080
+    description: Servidor de desenvolvimento local
+
+paths:
+  /healthz:
+    get:
+      summary: Verifica saúde da API
+      description: Endpoint de health check que retorna status da aplicação e configurações
+      tags:
+        - Health
+      responses:
+        "200":
+          description: API funcionando corretamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  chapters_onda1:
+                    type: array
+                    items:
+                      type: string
+                    example: ["02", "08", "84", "85"]
+                  partner_weights:
+                    type: boolean
+                    example: true
+        "500":
+          description: Erro interno do servidor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /market/size:
+    get:
+      summary: Retorna TAM/SAM/SOM agregados por filtros
+      description: |
+        Calcula métricas de mercado (Total Addressable Market, Serviceable Addressable Market, 
+        Serviceable Obtainable Market) baseado nos filtros fornecidos.
+        
+        - **TAM**: Mercado total endereçável (todos os capítulos)
+        - **SAM**: Mercado endereçável atendível (apenas capítulos do escopo)
+        - **SOM**: Mercado obtenível atendível (SAM * percentual configurado)
+      tags:
+        - Market Analysis
+      parameters:
+        - in: query
+          name: metric
+          required: true
+          schema:
+            type: string
+            enum: [TAM, SAM, SOM]
+          description: Tipo de métrica a ser calculada
+          example: TAM
+        - in: query
+          name: year_from
+          schema:
+            type: integer
+            minimum: 2020
+            maximum: 2025
+            default: 2020
+          description: Ano inicial do período
+          example: 2022
+        - in: query
+          name: year_to
+          schema:
+            type: integer
+            minimum: 2020
+            maximum: 2025
+            default: 2025
+          description: Ano final do período
+          example: 2024
+        - in: query
+          name: ncm_chapter
+          schema:
+            type: string
+            pattern: "^[0-9]{2}$"
+          description: Filtra um capítulo NCM específico (2 dígitos)
+          example: "84"
+        - in: query
+          name: scenario
+          schema:
+            type: string
+            enum: [base, aggressive]
+            default: base
+          description: |
+            Cenário usado apenas para SOM:
+            - base: 1.5% do SAM
+            - aggressive: 3% do SAM
+          example: base
+      responses:
+        "200":
+          description: Dados de mercado calculados com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketSizeResponse"
+        "400":
+          description: Parâmetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missing_metric:
+                  summary: Métrica não informada
+                  value:
+                    error: "metric is required [TAM|SAM|SOM]"
+                invalid_metric:
+                  summary: Métrica inválida
+                  value:
+                    error: "invalid metric; use TAM|SAM|SOM"
+        "500":
+          description: Erro interno do servidor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /routes/compare:
+    get:
+      summary: Compara EUA vs. destinos alternativos
+      description: |
+        Compara o potencial de mercado entre diferentes parceiros comerciais
+        baseado em pesos configuráveis por capítulo NCM. Esta é uma implementação
+        stub que será substituída por dados reais de rotas comerciais.
+      tags:
+        - Route Analysis
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+            default: USA
+          description: Parceiro principal (código do país)
+          example: USA
+        - in: query
+          name: alts
+          schema:
+            type: string
+            default: CHN,ARE,SAU,IND
+          description: Lista de parceiros alternativos separada por vírgulas
+          example: CHN,ARE,IND
+        - in: query
+          name: ncm_chapter
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9]{2}$"
+          description: Capítulo NCM para análise (2 dígitos)
+          example: "84"
+        - in: query
+          name: year
+          required: true
+          schema:
+            type: integer
+            minimum: 2020
+            maximum: 2025
+          description: Ano para análise
+          example: 2024
+      responses:
+        "200":
+          description: Comparação de rotas calculada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompareResponse"
+        "400":
+          description: Parâmetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missing_chapter:
+                  summary: Capítulo NCM não informado
+                  value:
+                    error: "ncm_chapter (2 dígitos) é obrigatório"
+                invalid_year:
+                  summary: Ano inválido
+                  value:
+                    error: "invalid year"
+        "404":
+          description: Dados não encontrados para os parâmetros informados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                no_data:
+                  summary: Sem dados para ano/capítulo
+                  value:
+                    error: "sem dados para ano/capítulo"
+                    year: 2024
+                    ncm_chapter: "99"
+        "500":
+          description: Erro interno do servidor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /openapi.yaml:
+    get:
+      summary: Baixa o arquivo OpenAPI
+      description: Retorna a especificação OpenAPI em formato YAML
+      tags:
+        - Documentation
+      responses:
+        "200":
+          description: Especificação OpenAPI
+          content:
+            text/yaml:
+              schema:
+                type: string
+
+  /docs:
+    get:
+      summary: Interface de documentação interativa
+      description: Página HTML com documentação interativa usando ReDoc
+      tags:
+        - Documentation
+      responses:
+        "200":
+          description: Página de documentação
+          content:
+            text/html:
+              schema:
+                type: string
+
+components:
+  schemas:
+    MarketSizeItem:
+      type: object
+      required:
+        - ano
+        - ncm_chapter
+        - valor_usd
+      properties:
+        ano:
+          type: integer
+          description: Ano do dado
+          example: 2024
+        ncm_chapter:
+          type: string
+          description: Capítulo NCM (2 dígitos)
+          pattern: "^[0-9]{2}$"
+          example: "84"
+        valor_usd:
+          type: number
+          format: double
+          description: Valor em dólares americanos
+          minimum: 0
+          example: 123456789.12
+
+    MarketSizeResponse:
+      type: object
+      required:
+        - metric
+        - scenario
+        - items
+      properties:
+        metric:
+          type: string
+          description: Métrica calculada
+          enum: [TAM, SAM, SOM]
+          example: TAM
+        scenario:
+          type: string
+          description: Cenário aplicado (relevante para SOM)
+          enum: [base, aggressive]
+          example: base
+        items:
+          type: array
+          description: Lista de itens com dados de mercado
+          items:
+            $ref: "#/components/schemas/MarketSizeItem"
+
+    CompareItem:
+      type: object
+      required:
+        - partner
+        - share
+        - estimated_usd
+      properties:
+        partner:
+          type: string
+          description: Código do país parceiro
+          example: USA
+        share:
+          type: number
+          format: float
+          description: Participação percentual (0.0 a 1.0)
+          minimum: 0
+          maximum: 1
+          example: 0.45
+        estimated_usd:
+          type: number
+          format: double
+          description: Valor estimado em dólares americanos
+          minimum: 0
+          example: 123456789.12
+
+    CompareResponse:
+      type: object
+      required:
+        - year
+        - ncm_chapter
+        - basis
+        - tam_total_usd
+        - from
+        - alts
+        - results
+      properties:
+        year:
+          type: integer
+          description: Ano da análise
+          example: 2024
+        ncm_chapter:
+          type: string
+          description: Capítulo NCM analisado
+          pattern: "^[0-9]{2}$"
+          example: "84"
+        basis:
+          type: string
+          description: Base de dados utilizada para o cálculo
+          example: "TAM (mview)"
+        tam_total_usd:
+          type: number
+          format: double
+          description: Valor total do TAM para o capítulo/ano
+          minimum: 0
+          example: 1234567890.12
+        from:
+          type: string
+          description: Parceiro principal
+          example: USA
+        alts:
+          type: array
+          description: Lista de parceiros alternativos
+          items:
+            type: string
+          example: ["CHN", "ARE", "IND"]
+        note:
+          type: string
+          description: Nota explicativa sobre a metodologia
+          example: "stub usando pesos configuráveis; trocar por dado real por parceiro na próxima iteração"
+        results:
+          type: array
+          description: Resultados da comparação por parceiro
+          items:
+            $ref: "#/components/schemas/CompareItem"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Mensagem de erro
+          example: "Invalid parameter"
+        year:
+          type: integer
+          description: Ano relacionado ao erro (opcional)
+          example: 2024
+        ncm_chapter:
+          type: string
+          description: Capítulo NCM relacionado ao erro (opcional)
+          example: "84"
+
+tags:
+  - name: Health
+    description: Endpoints para verificação de saúde da API
+  - name: Market Analysis
+    description: Análise de métricas de mercado (TAM/SAM/SOM)
+  - name: Route Analysis
+    description: Análise comparativa de rotas comerciais
+  - name: Documentation
+    description: Documentação da API

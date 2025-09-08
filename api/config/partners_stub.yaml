@@ -1,0 +1,12 @@
+partners:
+  default:
+    USA: 0.40   # EUA 40% por padrão
+    CHN: 0.30
+    ARE: 0.15
+    IND: 0.15
+
+  "84":         # exemplo de ajuste específico p/ capítulo 84
+    USA: 0.45
+    CHN: 0.30
+    ARE: 0.15
+    IND: 0.10
