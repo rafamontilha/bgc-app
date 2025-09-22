@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: bgc-mview-refresh
+  namespace: data
+spec:
+  schedule: "0 3 * * *"   # 03:00 todos os dias
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: refresher
+              image: bitnami/postgresql:16
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: pg-postgresql
+                      key: password     # senha do usuário bgc
+              command: ["/bin/sh","-lc"]
+              args:
+                - >
+                  /opt/bitnami/postgresql/bin/psql
+                  -h pg-postgresql.data.svc.cluster.local
+                  -U bgc -d bgc -v ON_ERROR_STOP=1
+                  -c "REFRESH MATERIALIZED VIEW CONCURRENTLY m_tam_by_year_chapter;"

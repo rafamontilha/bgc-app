@@ -245,4 +245,43 @@ Este projeto está sob licença MIT. Veja [LICENSE](LICENSE) para mais detalhes.
 
 **Status do Projeto**: 🟢 Sprint 1 Completa - Ambiente local funcional com API read-only
 
+## Testes E2E (Sprint 2)
+1) API
+   - /healthz → ok, `partner_weights:true`, `tariffs_loaded:true`
+   - /market/size?metric=TAM&year_from=2024&year_to=2025 → 200 com items
+   - /routes/compare?from=USA&alts=CHN,ARE,IND&ncm_chapter=84&year=2024 → 200
+
+2) Dashboard (index.html)
+   - TAM 2020–2025 → preenche tabela/KPIs
+   - SOM base vs aggressive → aggressive ≈ 2× base (1,5%→3%)
+   - Exportar CSV gera arquivo com `ano,metric,valor_usd`
+
+3) Rotas (routes.html)
+   - Cenário = `base` e `tarifa10` → `adjusted_total_usd` muda
+   - Checagem de soma = OK (soma dos parceiros == total ajustado)
+   - Exportar CSV: `partner,share,factor,estimated_usd`
+
+4) Qualidade
+   - scripts/checks.ps1 → “Aprovado” ou “Aprovado com alertas”
+### Sprint 2 — Testes E2E & Aceite (S2-14)
+
+Siga o roteiro em `docs/Sprint2_E2E_Checklist.md` ou use os comandos abaixo (PowerShell, na raiz `bgc`):
+
+```powershell
+docker compose -f .\bgcstack\docker-compose.yml up -d
+.\scripts\seed.ps1
+curl.exe http://localhost:8080/healthz
+start http://localhost:3000
+start http://localhost:3000/routes.html
+.\scripts\checks.ps1
+```
+
+Critérios de aceite:
+- `/healthz` ok com `partner_weights:true` e `tariffs_loaded:true`
+- `/market/size` retorna TAM/SAM/SOM; **SOM base vs aggressive** difere (~2x)
+- `/routes/compare` aplica `tariff_scenario` e soma `results` = `adjusted_total_usd`
+- Dashboard e Rotas funcionais com export CSV
+- Checks de qualidade **Aprovado** (ou **Aprovado com alertas** apenas para outliers)
+
+
 **Última atualização**: Setembro 2025

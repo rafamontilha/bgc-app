@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bgc-api
+  namespace: data
+  labels: { app: bgc-api }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: bgc-api } }
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
+  template:
+    metadata:
+      labels: { app: bgc-api }
+    spec:
+      containers:
+        - name: api
+          image: bgc-api:v0.2.5
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 8080 }]
+          env:
+            - { name: DB_HOST, value: pg-postgresql.data.svc.cluster.local }
+            - { name: DB_PORT, value: "5432" }
+            - { name: DB_USER, value: bgc }
+            - { name: DB_NAME, value: bgc }
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: pg-postgresql
+                  key: password
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 1
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bgc-api
+  namespace: data
+  labels: { app: bgc-api }
+spec:
+  type: ClusterIP
+  selector: { app: bgc-api }
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bgc-api
+  namespace: data
+  annotations:
+    kubernetes.io/ingress.class: traefik
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: api.bgc.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bgc-api
+                port:
+                  number: 8080

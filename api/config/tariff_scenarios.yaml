@@ -1,0 +1,13 @@
+﻿scenarios:
+  base:
+    default: { USA: 1.00, CHN: 1.00, ARE: 1.00, IND: 1.00 }
+
+  tarifa10:
+    default: { USA: 0.95, CHN: 1.00, ARE: 1.00, IND: 1.00 }
+    chapters:
+      "84": { USA: 0.90 }          # mais restritivo para cap.84
+    years:
+      "2024":
+        default: { USA: 0.94 }     # ajuste específico no ano
+        chapters:
+          "84": { USA: 0.88 }      # 12% no cap.84 em 2024

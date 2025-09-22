@@ -167,6 +167,11 @@ paths:
             maximum: 2025
           description: Ano para análise
           example: 2024
+        - in: query
+          name: tariff_scenario
+          schema: { type: string, example: tarifa10 }
+          description: "Nome do cenário de tarifas configurado (ex.: base, tarifa10)"
+  
       responses:
         "200":
           description: Comparação de rotas calculada com sucesso
@@ -236,6 +241,68 @@ paths:
             text/html:
               schema:
                 type: string
+  /metrics:
+    get:
+      summary: Métricas de runtime (MVP)
+      description: Uptime e contadores por rota/status (não Prometheus).
+      tags:
+        - Monitoring
+      responses:
+        "200":
+          description: Snapshot de métricas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uptime_seconds:
+                    type: integer
+                    example: 1234
+                  requests_total:
+                    type: integer
+                    example: 42
+                  requests_by_status:
+                    type: object
+                    additionalProperties:
+                      type: integer
+                    example:
+                      "200": 40
+                      "404": 1
+                      "500": 1
+                  routes:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        requests: { type: integer }
+                        status_2xx: { type: integer }
+                        status_4xx: { type: integer }
+                        status_5xx: { type: integer }
+                        sum_latency_ms: { type: integer }
+                        avg_latency_ms: { type: number }
+              examples:
+                sample:
+                  summary: Exemplo de resposta
+                  value:
+                    uptime_seconds: 3600
+                    requests_total: 128
+                    requests_by_status: { "200": 120, "404": 6, "500": 2 }
+                    routes:
+                      "GET /healthz":
+                        requests: 20
+                        status_2xx: 20
+                        status_4xx: 0
+                        status_5xx: 0
+                        sum_latency_ms: 120
+                        avg_latency_ms: 6
+                      "GET /market/size":
+                        requests: 80
+                        status_2xx: 78
+                        status_4xx: 1
+                        status_5xx: 1
+                        sum_latency_ms: 1600
+                        avg_latency_ms: 20
+
 
 components:
   schemas:
@@ -303,6 +370,7 @@ components:
           minimum: 0
           maximum: 1
           example: 0.45
+        factor: { type: number, format: float, example: 0.88 }    
         estimated_usd:
           type: number
           format: double
@@ -359,6 +427,9 @@ components:
           description: Resultados da comparação por parceiro
           items:
             $ref: "#/components/schemas/CompareItem"
+        tariff_scenario: { type: string, example: tarifa10 }
+        tariff_applied: { type: boolean, example: true }
+        adjusted_total_usd: { type: number, format: double }
 
     ErrorResponse:
       type: object
@@ -387,3 +458,6 @@ tags:
     description: Análise comparativa de rotas comerciais
   - name: Documentation
     description: Documentação da API
+  - name: Monitoring
+    description: Observabilidade básica da API (uptime, contadores e latência média por rota)
+  
