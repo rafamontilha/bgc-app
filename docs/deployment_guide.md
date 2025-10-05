@@ -1,12 +1,105 @@
 # Guia de Deployment - BGC Analytics
 
-**Versão:** 1.0  
-**Última atualização:** Setembro 2025  
-**Ambiente:** Desenvolvimento Local (k3d)
+**Versão:** 2.0  
+**Última atualização:** Outubro 2025  
+**Ambiente:** Desenvolvimento Local (Docker Compose) e Kubernetes (k3d)
 
-## 📋 Pré-requisitos
+## 📋 Visão Geral
 
-### Software Necessário
+Este guia cobre dois métodos de deployment:
+
+1. **Docker Compose** (Recomendado para desenvolvimento) - Mais rápido e simples
+2. **Kubernetes (k3d)** - Para testar deployment production-like
+
+## 🚀 Opção A: Docker Compose (Recomendado)
+
+### Pré-requisitos
+```bash
+# Verificar versões
+docker --version          # >= 20.10
+docker compose version    # >= 2.0
+```
+
+### Deployment Completo
+
+#### 1. Clonar e Preparar
+```bash
+# Clonar repositório
+git clone https://github.com/rafamontilha/bgc-app.git
+cd bgc-app
+```
+
+#### 2. Iniciar Stack
+```bash
+# Subir todos os serviços
+cd bgcstack
+docker compose up -d
+
+# Verificar status
+docker compose ps
+
+# Ver logs
+docker compose logs -f api
+```
+
+**Serviços disponíveis:**
+- API: http://localhost:8080
+- Web UI: http://localhost:3000
+- PostgreSQL: localhost:5432
+- PgAdmin: http://localhost:5050
+
+#### 3. Carregar Dados (Opcional)
+```bash
+# Voltar para raiz do projeto
+cd ..
+
+# Executar script de seed
+pwsh scripts/seed.ps1
+```
+
+#### 4. Testar API
+```bash
+# Health check
+curl http://localhost:8080/health
+
+# Market size
+curl "http://localhost:8080/market/size?metric=TAM&year_from=2023&year_to=2024"
+
+# Routes comparison
+curl "http://localhost:8080/routes/compare?from=USA&alts=CHN&ncm_chapter=84&year=2024"
+```
+
+#### 5. Acessar Web Dashboard
+Abrir navegador em:
+- Dashboard TAM/SAM/SOM: http://localhost:3000
+- Comparação de Rotas: http://localhost:3000/routes.html
+- Documentação API: http://localhost:8080/docs
+
+### Comandos Úteis - Docker Compose
+
+```bash
+# Parar serviços
+docker compose down
+
+# Rebuild após mudanças no código
+docker compose build api
+docker compose up -d api
+
+# Ver logs
+docker compose logs -f api
+
+# Acessar banco de dados
+docker compose exec db psql -U bgc -d bgc
+
+# Limpar tudo (cuidado: apaga dados)
+docker compose down -v
+```
+
+---
+
+## 🚀 Opção B: Kubernetes (k3d)
+
+### Pré-requisitos
 ```bash
 # Verificar versões
 docker --version          # >= 20.10
@@ -66,24 +159,7 @@ Write-Host "🎉 Verificação concluída!" -ForegroundColor Green
 
 ---
 
-## 🚀 Deployment Completo (Zero to Hero)
-
-### Opção 1: Script Automatizado (Recomendado)
-```powershell
-# Para Windows PowerShell
-.\bgc.ps1 setup
-.\bgc.ps1 dev
-.\bgc.ps1 test
-```
-
-```bash
-# Para Linux/Mac
-make setup
-make dev  
-make test
-```
-
-### Opção 2: Passo a Passo Manual
+## 🔧 Deployment Kubernetes - Passo a Passo
 
 #### 1. Criar Cluster k3d
 ```bash
@@ -155,13 +231,13 @@ kubectl logs job/bgc-migration-0001
 
 ##### Build Local
 ```bash
-# API
-cd services/api
+# API (Clean Architecture)
+cd api
 docker build -t bgc/api:dev .
-cd ../..
+cd ..
 
 # Ingest  
-cd services/ingest
+cd services/bgc-ingest
 docker build -t bgc/ingest:dev .
 cd ../..
 
@@ -237,15 +313,70 @@ curl http://localhost:3000/metrics/pais?limit=5
 
 ---
 
+## 🏗️ Arquitetura Clean - Estrutura para Desenvolvimento
+
+A API foi refatorada para seguir Clean Architecture (Hexagonal). Ao desenvolver:
+
+**Adicionar novo domínio:**
+```bash
+# 1. Criar estrutura
+mkdir -p api/internal/business/novo_dominio
+mkdir -p api/internal/repository/postgres
+
+# 2. Criar arquivos necessários
+# - api/internal/business/novo_dominio/entities.go
+# - api/internal/business/novo_dominio/repository.go (interface)
+# - api/internal/business/novo_dominio/service.go
+# - api/internal/repository/postgres/novo_dominio.go (implementação)
+# - api/internal/api/handlers/novo_dominio.go
+
+# 3. Registrar em api/internal/app/server.go
+```
+
+**Modificar lógica de negócio:**
+- Editar `api/internal/business/{domain}/service.go`
+- Lógica de negócio NUNCA vai em handlers ou repositories
+
+**Adicionar endpoint:**
+- Criar handler em `api/internal/api/handlers/`
+- Registrar rota em `api/internal/app/server.go`
+
+**Modificar queries SQL:**
+- Editar `api/internal/repository/postgres/{domain}.go`
+- Queries SQL NUNCA vão em services
+
+---
+
 ## 🔄 Workflows de Desenvolvimento
 
-### Workflow Diário
+### Workflow Diário - Docker Compose
+```bash
+# 1. Iniciar ambiente
+cd bgcstack
+docker compose up -d
+
+# 2. Fazer alterações no código da API
+cd ../api
+
+# 3. Rebuild e restart
+cd ../bgcstack
+docker compose build api
+docker compose restart api
+
+# 4. Ver logs
+docker compose logs -f api
+
+# 5. Testar mudanças
+curl http://localhost:8080/health
+```
+
+### Workflow Diário - Kubernetes
 ```bash
 # 1. Verificar ambiente (se acabou de ligar o PC)
-.\bgc.ps1 reboot-fix
+kubectl get nodes
 
 # 2. Status atual
-.\bgc.ps1 status
+kubectl get pods
 
 # 3. Fazer alterações no código
 # ... edit services/api/main.go ...

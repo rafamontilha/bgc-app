@@ -4,6 +4,25 @@ Sistema de analytics para dados de exportação brasileira com stack Kubernetes 
 
 ## 🚀 Quick Start
 
+### Opção A: Docker Compose (Recomendado para Desenvolvimento)
+
+```bash
+# 1. Iniciar o stack completo
+cd bgcstack
+docker compose up -d
+
+# 2. Carregar dados de exemplo (opcional)
+cd ..
+pwsh scripts/seed.ps1
+
+# 3. Acessar
+# API: http://localhost:8080
+# Web UI: http://localhost:3000
+# PgAdmin: http://localhost:5050
+```
+
+### Opção B: Kubernetes (k3d)
+
 ```bash
 # 1. Criar cluster k3d
 k3d cluster create bgc --port "8080:80@loadbalancer"
@@ -16,8 +35,8 @@ helm install bgc-postgres bitnami/postgresql --namespace default
 kubectl apply -f deploy/migrations/
 
 # 4. Fazer build e import das imagens
-docker build -t bgc/ingest:dev services/ingest/
-docker build -t bgc/api:dev services/api/
+docker build -t bgc/ingest:dev services/bgc-ingest/
+docker build -t bgc/api:dev api/
 k3d image import bgc/ingest:dev bgc/api:dev -c bgc
 
 # 5. Deploy dos serviços
@@ -27,6 +46,61 @@ kubectl apply -f deploy/ingest/
 # 6. Port-forward para acessar API
 kubectl port-forward service/bgc-api 3000:3000
 ```
+
+## 🏗️ Arquitetura Clean (Hexagonal)
+
+O projeto segue os princípios de Clean Architecture e Hexagonal Architecture para máxima manutenibilidade e testabilidade.
+
+### Estrutura da API (api/)
+
+```
+api/
+├── cmd/api/main.go              # Entry point da aplicação
+├── internal/
+│   ├── config/                  # Configuração e carregamento de YAML
+│   │   └── config.go
+│   ├── business/                # Camada de domínio (lógica de negócio)
+│   │   ├── market/             # Domínio de métricas de mercado
+│   │   │   ├── entities.go    # Estruturas de dados
+│   │   │   ├── repository.go  # Interface do repository
+│   │   │   └── service.go     # Lógica de TAM/SAM/SOM
+│   │   ├── route/              # Domínio de comparação de rotas
+│   │   │   ├── entities.go
+│   │   │   ├── repository.go
+│   │   │   └── service.go
+│   │   └── health/             # Domínio de health check
+│   │       └── service.go
+│   ├── repository/              # Camada de persistência
+│   │   └── postgres/           # Implementação PostgreSQL
+│   │       ├── db.go           # Conexão com DB
+│   │       ├── market.go       # Queries de mercado
+│   │       └── route.go        # Queries de rotas
+│   ├── api/                     # Camada de apresentação (HTTP)
+│   │   ├── handlers/           # HTTP handlers
+│   │   │   ├── health.go
+│   │   │   ├── market.go
+│   │   │   └── route.go
+│   │   └── middleware/         # Middlewares HTTP
+│   │       ├── cors.go
+│   │       └── metrics.go
+│   └── app/                     # Wiring e dependency injection
+│       └── server.go           # Inicialização do servidor
+├── config/                      # Arquivos de configuração
+│   ├── partners_stub.yaml
+│   ├── tariff_scenarios.yaml
+│   ├── scope.yaml
+│   └── som.yaml
+└── openapi.yaml                 # Especificação OpenAPI
+
+```
+
+### Princípios Aplicados
+
+✅ **Separação de Responsabilidades**: Cada camada tem uma responsabilidade clara
+✅ **Dependency Inversion**: Camadas externas dependem de interfaces internas
+✅ **Testabilidade**: Services e repositories são facilmente testáveis via mocks
+✅ **Independência de Framework**: Lógica de negócio isolada do Gin
+✅ **Manutenibilidade**: Código modular e organizado por domínio
 
 ## 📋 Checklist Pós-Reboot
 
@@ -121,12 +195,12 @@ kubectl exec -it deployment/bgc-postgres -- /opt/bitnami/scripts/postgresql/entr
 ### Build Local
 ```bash
 # Ingest service
-cd services/ingest
+cd services/bgc-ingest
 docker build -t bgc/ingest:dev .
 k3d image import bgc/ingest:dev -c bgc
 
 # API service  
-cd services/api
+cd api
 docker build -t bgc/api:dev .
 k3d image import bgc/api:dev -c bgc
 
@@ -137,17 +211,34 @@ kubectl rollout restart cronjob/bgc-ingest
 
 ### Estrutura do Projeto
 ```
-bgc/
-├── deploy/           # Manifests Kubernetes
-│   ├── api/         # Deployment/Service da API
-│   ├── ingest/      # CronJob de ingest
-│   └── migrations/  # Jobs de migração SQL
+bgc-app/
+├── api/                         # API Go com Clean Architecture
+│   ├── cmd/api/                # Entry point
+│   ├── internal/               # Código interno (não exportável)
+│   │   ├── business/          # Domínios (market, route, health)
+│   │   ├── repository/        # Implementações de persistência
+│   │   ├── api/               # Handlers e middleware HTTP
+│   │   ├── app/               # Wiring e servidor
+│   │   └── config/            # Configuração
+│   ├── config/                 # YAMLs de configuração
+│   ├── Dockerfile
+│   └── go.mod
 ├── services/
-│   ├── api/         # Código da API Go
-│   └── ingest/      # Código do ingest Go
-├── db/              # Scripts SQL
-├── docs/            # Documentação técnica
-└── scripts/         # Scripts auxiliares
+│   └── bgc-ingest/            # Serviço de ingest de dados
+├── db/                         # Scripts SQL e migrations
+│   ├── init/                  # Schema inicial
+│   └── migrations/            # Migrations incrementais
+├── web/                        # Frontend (HTML/JS)
+│   ├── index.html             # Dashboard TAM/SAM/SOM
+│   └── routes.html            # Comparação de rotas
+├── deploy/                     # Manifests Kubernetes
+│   ├── api/                   # Deployment da API
+│   ├── ingest/                # CronJobs de ingest
+│   └── migrations/            # Jobs de migration
+├── bgcstack/                   # Docker Compose
+│   └── docker-compose.yml
+├── docs/                       # Documentação técnica
+└── scripts/                    # Scripts auxiliares
 ```
 
 ## 📊 API Endpoints
@@ -225,9 +316,32 @@ k3d cluster delete bgc
 
 ## 📚 Documentação Técnica
 
-- [Post-mortem Sprint 1](docs/sprint1-postmortem.md)
-- [Arquitetura do Sistema](docs/architecture.md)
-- [Guia de Deployment](docs/deployment.md)
+- [Arquitetura do Sistema](docs/architecture_doc.md) - Visão completa da arquitetura
+- [Guia de Deployment](docs/deployment_guide.md) - Como fazer deploy
+- [Post-mortem Sprint 1](docs/sprint1_postmortem.md) - Lições aprendidas
+
+### Desenvolvimento
+
+**Build local:**
+```bash
+cd api
+go mod tidy
+go build ./cmd/api
+./bgc-api  # Requer PostgreSQL rodando
+```
+
+**Testes (quando disponíveis):**
+```bash
+go test ./internal/...
+```
+
+**Adicionar nova funcionalidade:**
+1. Criar entidades em `internal/business/{domain}/entities.go`
+2. Definir interface repository em `internal/business/{domain}/repository.go`
+3. Implementar service com lógica de negócio em `internal/business/{domain}/service.go`
+4. Implementar repository em `internal/repository/postgres/{domain}.go`
+5. Criar handler em `internal/api/handlers/{domain}.go`
+6. Registrar rota em `internal/app/server.go`
 
 ## 🤝 Contribuindo
 
@@ -243,7 +357,7 @@ Este projeto está sob licença MIT. Veja [LICENSE](LICENSE) para mais detalhes.
 
 ---
 
-**Status do Projeto**: 🟢 Sprint 1 Completa - Ambiente local funcional com API read-only
+**Status do Projeto**: 🟢 Sprint 2 Completa - Clean Architecture implementada, API funcional com TAM/SAM/SOM e comparação de rotas
 
 ## Testes E2E (Sprint 2)
 1) API
