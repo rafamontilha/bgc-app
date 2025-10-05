@@ -1,15 +1,17 @@
 # Arquitetura do Sistema BGC Analytics
 
-**Versão:** 1.0  
-**Última atualização:** Setembro 2025  
-**Status:** Sprint 1 Implementada
+**Versão:** 2.0  
+**Última atualização:** Outubro 2025  
+**Status:** Sprint 2 Completa - Clean Architecture Implementada
 
 ## 📋 Visão Geral
 
-O BGC Analytics é um sistema de analytics para dados de exportação brasileira, construído com arquitetura cloud-native para execução em ambiente Kubernetes local (k3d) durante desenvolvimento.
+O BGC Analytics é um sistema de analytics para dados de exportação brasileira, construído com **Clean Architecture (Hexagonal Architecture)** e arquitetura cloud-native para execução em ambiente Kubernetes local (k3d) durante desenvolvimento e Docker Compose para desenvolvimento rápido.
 
 ### Objetivos do Sistema
 - **Performance:** Consultas analíticas rápidas via Materialized Views
+- **Manutenibilidade:** Código modular seguindo Clean Architecture
+- **Testabilidade:** Separação clara de camadas com dependency injection
 - **Simplicidade:** Stack mínima e bem documentada 
 - **Desenvolvimento ágil:** Ambiente local reproducível
 - **Escalabilidade:** Preparado para migração cloud futura
@@ -56,30 +58,156 @@ O BGC Analytics é um sistema de analytics para dados de exportação brasileira
 
 ## 🔧 Componentes Principais
 
-### 1. BGC API (Go)
-**Responsabilidade:** API REST para consultas analíticas
+### 1. BGC API (Go) - Clean Architecture
+
+**Responsabilidade:** API REST para consultas analíticas com arquitetura hexagonal
 
 **Tecnologias:**
 - **Runtime:** Go 1.23+
-- **Framework:** HTTP nativo + gorilla/mux (planejado)
-- **Database:** lib/pq (PostgreSQL driver)
-- **Deploy:** Kubernetes Deployment
+- **Framework HTTP:** Gin (gin-gonic/gin)
+- **Database Driver:** lib/pq (PostgreSQL)
+- **Configuration:** gopkg.in/yaml.v3
+- **Deploy:** Kubernetes Deployment ou Docker Compose
 
 **Endpoints Atuais:**
 ```
-GET /metrics/resumo[?ano=YYYY&setor=Nome]
-GET /metrics/pais[?ano=YYYY&limit=N]
+GET /health, /healthz           # Health check com status de config
+GET /metrics                    # Métricas de uso da API
+GET /docs                       # Documentação Redoc
+GET /openapi.yaml              # Especificação OpenAPI
+
+GET /market/size               # Cálculo de TAM/SAM/SOM
+  ?metric=TAM|SAM|SOM
+  &year_from=YYYY
+  &year_to=YYYY
+  &ncm_chapter=XX
+  &scenario=base|aggressive
+
+GET /routes/compare            # Comparação de rotas comerciais
+  ?from=USA
+  &alts=CHN,ARE,IND
+  &ncm_chapter=XX
+  &year=YYYY
+  &tariff_scenario=base|tarifa10
 ```
 
-**Arquitetura Interna:**
+**Arquitetura Hexagonal (Camadas):**
 ```
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│   Handler   │───▶│  Service    │───▶│ Repository  │
-│             │    │   Layer     │    │             │
-│ HTTP Routes │    │ Business    │    │ SQL Queries │
-│ JSON/Error  │    │ Logic       │    │ Connection  │
-└─────────────┘    └─────────────┘    └─────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    cmd/api/main.go                          │
+│                    (Entry Point)                            │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│              internal/app/server.go                         │
+│          (Dependency Injection & Wiring)                    │
+└─────────────────────────────────────────────────────────────┘
+           │                │                │
+           ▼                ▼                ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│  Handlers    │  │  Middleware  │  │   Config     │
+│  (HTTP)      │  │  (CORS, Log) │  │  (YAML)      │
+└──────────────┘  └──────────────┘  └──────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────┐
+│              internal/business/                             │
+│         (Domain Layer - Business Logic)                     │
+│                                                              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐                 │
+│  │  Market  │  │  Route   │  │  Health  │                 │
+│  │ Service  │  │ Service  │  │ Service  │                 │
+│  └──────────┘  └──────────┘  └──────────┘                 │
+│       │              │              │                       │
+│       ▼              ▼              ▼                       │
+│  Repository    Repository      (no repo)                   │
+│  Interface     Interface                                    │
+└─────────────────────────────────────────────────────────────┘
+           │              │
+           ▼              ▼
+┌─────────────────────────────────────────────────────────────┐
+│         internal/repository/postgres/                       │
+│      (Infrastructure - Database Access)                     │
+│                                                              │
+│  ┌──────────────┐  ┌──────────────┐                        │
+│  │   Market     │  │    Route     │                        │
+│  │ Repository   │  │ Repository   │                        │
+│  └──────────────┘  └──────────────┘                        │
+│          │                 │                                │
+│          └─────────────────┘                                │
+│                    │                                        │
+│                    ▼                                        │
+│            PostgreSQL Database                              │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+**Estrutura de Diretórios:**
+```
+api/
+├── cmd/api/main.go              # Entry point
+├── internal/
+│   ├── config/                  # Configuração
+│   │   └── config.go           # LoadConfig, LoadPartnerWeights, LoadTariffScenarios
+│   ├── business/                # Domínios (Lógica de Negócio)
+│   │   ├── market/
+│   │   │   ├── entities.go    # MarketItem, MarketSizeRequest/Response
+│   │   │   ├── repository.go  # Interface Repository
+│   │   │   └── service.go     # CalculateMarketSize (TAM/SAM/SOM)
+│   │   ├── route/
+│   │   │   ├── entities.go    # RouteCompareRequest/Response, RouteItem
+│   │   │   ├── repository.go  # Interface Repository
+│   │   │   └── service.go     # CompareRoutes (partner weights + tariffs)
+│   │   └── health/
+│   │       └── service.go     # GetHealthStatus
+│   ├── repository/              # Implementações de Persistência
+│   │   └── postgres/
+│   │       ├── db.go           # MustConnect (connection setup)
+│   │       ├── market.go       # GetMarketDataByYearRange
+│   │       └── route.go        # GetTAMByYearAndChapter
+│   ├── api/                     # Camada HTTP
+│   │   ├── handlers/
+│   │   │   ├── health.go       # GET /health, /healthz
+│   │   │   ├── market.go       # GET /market/size
+│   │   │   └── route.go        # GET /routes/compare
+│   │   └── middleware/
+│   │       ├── cors.go         # CORS middleware
+│   │       └── metrics.go      # Request ID, logging, metrics
+│   └── app/
+│       └── server.go           # NewServer (wiring), Run
+├── config/                      # Arquivos de configuração YAML
+│   ├── partners_stub.yaml
+│   ├── tariff_scenarios.yaml
+│   ├── scope.yaml
+│   └── som.yaml
+├── Dockerfile
+├── go.mod
+└── openapi.yaml
+```
+
+**Princípios Aplicados:**
+
+1. **Separation of Concerns**: Cada camada tem responsabilidade única
+   - Handlers: HTTP request/response
+   - Services: Business logic
+   - Repositories: Data access
+
+2. **Dependency Inversion**: 
+   - Services dependem de interfaces de Repository
+   - Implementações concretas injetadas em runtime
+
+3. **Testability**:
+   - Services testáveis via mock repositories
+   - Business logic isolada de HTTP e DB
+
+4. **Framework Independence**:
+   - Lógica de negócio não depende de Gin
+   - Fácil migração para outro framework HTTP
+
+5. **Clean Code**:
+   - Packages pequenos e focados
+   - Código autodocumentado
+   - Sem comentários desnecessários
 
 ### 2. BGC Ingest (Go)
 **Responsabilidade:** ETL de dados CSV/XLSX para PostgreSQL
@@ -88,14 +216,15 @@ GET /metrics/pais[?ano=YYYY&limit=N]
 - **Runtime:** Go 1.23+
 - **CSV:** encoding/csv nativo
 - **Excel:** github.com/xuri/excelize/v2
-- **Database:** lib/pq
+- **Database:** pgx/v5 (PostgreSQL driver com connection pooling)
 - **Deploy:** Kubernetes CronJob
 
 **Comandos Disponíveis:**
 ```bash
-bgc-ingest load-csv /path/to/file.csv
-bgc-ingest load-xlsx /path/to/file.xlsx [--sheet=Nome]
-bgc-ingest refresh-mv
+bgc-ingest health                           # Database health check
+bgc-ingest insert-sample                    # Insert sample data
+bgc-ingest load-csv /path/file.csv          # Load CSV with configurable separator
+bgc-ingest load-xlsx /path/file.xlsx        # Load Excel with sheet selection
 ```
 
 **Processo de Ingest:**
@@ -111,6 +240,8 @@ bgc-ingest refresh-mv
                │Row Read │    │Rules    │    │Upsert   │
                └─────────┘    └─────────┘    └─────────┘
 ```
+
+**Nota:** O serviço bgc-ingest mantém estrutura monolítica (services/bgc-ingest/) pois é um utilitário de linha de comando simples que não necessita da complexidade de clean architecture.
 
 ### 3. PostgreSQL (Bitnami Helm)
 **Responsabilidade:** Armazenamento e processamento de dados
@@ -223,6 +354,94 @@ CREATE UNIQUE INDEX ON rpt.mv_resumo_pais (pais);
 | `setores_count` | INT | Número de setores |
 | `anos` | INT[] | Anos disponíveis |
 | `updated_at` | TIMESTAMP | Último refresh |
+
+---
+
+## 🏗️ Clean Architecture - Fluxo de Requisição
+
+### Exemplo: GET /market/size?metric=TAM&year_from=2023&year_to=2024
+
+```
+1. HTTP Request
+   └─▶ Gin Router (app/server.go)
+
+2. Middleware Pipeline
+   ├─▶ CORS Middleware (api/middleware/cors.go)
+   ├─▶ Request ID Middleware (api/middleware/metrics.go)
+   └─▶ Logging & Metrics Middleware (api/middleware/metrics.go)
+
+3. Handler Layer (api/handlers/market.go)
+   ├─ Parse query parameters
+   ├─ Validate input
+   └─▶ Call MarketService.CalculateMarketSize(req)
+
+4. Service Layer (business/market/service.go)
+   ├─ Apply business rules (TAM/SAM/SOM logic)
+   ├─▶ Call Repository.GetMarketDataByYearRange(...)
+   ├─ Receive data from repository
+   ├─ Calculate SOM percentages (base: 1.5%, aggressive: 3%)
+   └─▶ Return MarketSizeResponse
+
+5. Repository Layer (repository/postgres/market.go)
+   ├─ Build SQL query with filters
+   ├─ Execute query on PostgreSQL
+   ├─ Scan rows into MarketItem structs
+   └─▶ Return []MarketItem
+
+6. Handler Layer (continued)
+   ├─ Receive response from service
+   └─▶ Return JSON response with status 200
+
+7. Middleware (continued)
+   ├─ Log request (structured JSON)
+   ├─ Update metrics counters
+   └─▶ Send response to client
+```
+
+### Dependency Injection (app/server.go)
+
+```go
+func NewServer(cfg *config.AppConfig, db *sql.DB) *Server {
+    // Load external configs
+    weights := config.LoadPartnerWeights(cfg.PartnerWeightsFile)
+    tariffs := config.LoadTariffScenarios(cfg.TariffScenariosFile)
+    
+    // Create repositories (infrastructure)
+    marketRepo := postgres.NewMarketRepository(db)
+    routeRepo := postgres.NewRouteRepository(db)
+    
+    // Create services (business logic) - inject repositories
+    marketService := market.NewService(marketRepo, cfg)
+    routeService := route.NewService(routeRepo, weights, tariffs)
+    healthService := health.NewService(cfg, weights, tariffs)
+    
+    // Create handlers (presentation) - inject services
+    marketHandler := handlers.NewMarketHandler(marketService)
+    routeHandler := handlers.NewRouteHandler(routeService)
+    healthHandler := handlers.NewHealthHandler(healthService)
+    
+    // Setup router with middleware
+    r := gin.Default()
+    r.Use(middleware.CORS())
+    r.Use(middleware.RequestID())
+    r.Use(middleware.MetricsAndLog())
+    
+    // Register routes
+    r.GET("/health", healthHandler.GetHealth)
+    r.GET("/market/size", marketHandler.GetMarketSize)
+    r.GET("/routes/compare", routeHandler.CompareRoutes)
+    
+    return &Server{router: r, config: cfg}
+}
+```
+
+### Benefícios da Arquitetura
+
+✅ **Testabilidade**: Cada camada pode ser testada isoladamente com mocks  
+✅ **Manutenibilidade**: Mudanças em uma camada não afetam outras  
+✅ **Legibilidade**: Código organizado por domínio de negócio  
+✅ **Reusabilidade**: Services podem ser usados por diferentes handlers  
+✅ **Escalabilidade**: Fácil adicionar novos domínios sem afetar existentes  
 
 ---
 
@@ -419,11 +638,21 @@ spec:
 
 ## 🎯 Roadmap Técnico
 
-### Sprint 2 (Próxima)
-- [ ] **Health Endpoints** - `/health`, `/ready`
-- [ ] **OpenAPI Spec** - Documentação formal
-- [ ] **Error Handling** - Padronização de erros HTTP
-- [ ] **Logging** - Logs estruturados JSON
+### Sprint 2 ✅ (Completa - Outubro 2025)
+- [x] **Clean Architecture** - Refatoração completa para hexagonal architecture
+- [x] **Health Endpoints** - `/health`, `/healthz` com status de configuração
+- [x] **OpenAPI Spec** - Documentação formal em `/openapi.yaml` e `/docs`
+- [x] **Error Handling** - Padronização de erros HTTP por domínio
+- [x] **Logging** - Logs estruturados JSON com request ID
+- [x] **Metrics** - Endpoint `/metrics` com contadores e latências
+- [x] **Market Analytics** - Endpoint `/market/size` com TAM/SAM/SOM
+- [x] **Route Comparison** - Endpoint `/routes/compare` com tariff scenarios
+- [x] **Configuration Management** - YAMLs para partners, tariffs, scope, SOM
+- [x] **Docker Compose** - Ambiente de desenvolvimento simplificado
+
+### Sprint 3 (Próxima)
+- [ ] **Unit Tests** - Testes para services e repositories
+- [ ] **Integration Tests** - Testes E2E automatizados
 - [ ] **Basic Metrics** - Counters e histogramas
 
 ### Sprint 3-4 (Médio Prazo)

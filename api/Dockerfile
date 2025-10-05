@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Build
-FROM golang:1.22-alpine AS build
+FROM golang:1.23-alpine AS build
 WORKDIR /app
 
 # Baixa deps conforme go.mod (cache eficiente)
@@ -13,7 +13,7 @@ COPY . .
 RUN go mod tidy
 
 # Build binário
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/bgc-api .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/bgc-api ./cmd/api
 
 # Runtime
 FROM alpine:3.20
