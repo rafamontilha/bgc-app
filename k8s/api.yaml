@@ -28,7 +28,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: pg-postgresql
-                  key: password
+                  key: password  # ← ALTERADO DE "postgres-password" PARA "password"
           readinessProbe:
             httpGet: { path: /healthz, port: 8080 }
             initialDelaySeconds: 3
