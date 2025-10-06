@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bgc-mviews-add-uniq
+  namespace: data
+data:
+  uniq.sql: |
+    -- Add unique index to materialized view
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_tam_year_chapter 
+    ON v_tam_by_year_chapter (ano, ncm_chapter);
