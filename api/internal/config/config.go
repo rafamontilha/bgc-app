@@ -41,11 +41,11 @@ type TariffScenarios struct {
 func LoadConfig() *AppConfig {
 	cfg := &AppConfig{
 		Port:                getenv("PORT", "8080"),
-		DBHost:              getenv("DB_HOST", "db"),
-		DBPort:              getenv("DB_PORT", "5432"),
-		DBUser:              getenv("DB_USER", "bgc"),
-		DBPassword:          getenv("DB_PASS", "bgc"),
-		DBName:              getenv("DB_NAME", "bgc"),
+		DBHost:              getenv("PGHOST", "localhost"),
+		DBPort:              getenv("PGPORT", "5432"),
+		DBUser:              getenv("PGUSER", "postgres"),
+		DBPassword:          getenv("PGPASSWORD", ""),
+		DBName:              getenv("PGDATABASE", "postgres"),
 		ScopeChapters:       []string{"02", "08", "84", "85"},
 		SOMBase:             0.015,
 		SOMAggressive:       0.03,
