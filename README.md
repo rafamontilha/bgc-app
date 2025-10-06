@@ -60,7 +60,8 @@ kubectl wait --for=condition=ready pod -l app=postgres -n data --timeout=120s
 # 6. Build imagens (NOMES CORRETOS)
 docker build -t bgc/bgc-api:dev api/
 docker build -t bgc/bgc-ingest:dev services/bgc-ingest/
-k3d image import bgc/bgc-api:dev bgc/bgc-ingest:dev -c bgc
+docker build -t bgc/bgc-web:dev web/
+k3d image import bgc/bgc-api:dev bgc/bgc-ingest:dev bgc/bgc-web:dev -c bgc
 
 # 7. Aplicar migrations (ordem correta)
 kubectl apply -f deploy/bgc-migrate-0001.yaml
@@ -80,11 +81,17 @@ kubectl wait --for=condition=ready pod -l app=bgc-api -n data --timeout=120s
 # 11. Verificar status
 kubectl get pods -n data
 
-# 12. Port-forward (mantém em execução)
+# 12. Deploy Web UI (opcional, para web.bgc.local)
+kubectl apply -f deploy/bgc-web.yaml
+
+# 13. Deploy Ingress (opcional, para api.bgc.local e web.bgc.local)
+kubectl apply -f deploy/bgc-ingress.yaml
+
+# 14. Port-forward para acesso via localhost (se não usar Ingress)
 kubectl port-forward service/bgc-api 8080:8080 -n data
 ```
 
-**Testar (em outro terminal PowerShell):**
+**Testar via localhost (em outro terminal PowerShell):**
 ```powershell
 # Health check
 curl http://localhost:8080/health
@@ -92,6 +99,43 @@ curl http://localhost:8080/health
 # Market size
 curl "http://localhost:8080/market/size?metric=TAM&year_from=2023&year_to=2024"
 ```
+
+### Configurar Hostnames Customizados (Opcional)
+
+Para acessar via `api.bgc.local` e `web.bgc.local`, siga os passos:
+
+**1. Editar arquivo hosts (Windows - como Administrador):**
+
+Abra o Notepad como Administrador e edite: `C:\Windows\System32\drivers\etc\hosts`
+
+Adicione as seguintes linhas:
+```
+127.0.0.1 api.bgc.local
+127.0.0.1 web.bgc.local
+```
+
+**2. Verificar que Web UI e Ingress estão deployados:**
+
+```powershell
+# Verificar deployments
+kubectl get deployments -n data
+
+# Verificar Ingress
+kubectl get ingress -n data
+```
+
+**3. Testar acesso via hostnames customizados:**
+
+```powershell
+# API (via hostname customizado)
+curl http://api.bgc.local/health
+curl "http://api.bgc.local/market/size?metric=TAM&year_from=2023&year_to=2024"
+
+# Web UI (abrir no navegador)
+# http://web.bgc.local
+```
+
+**Nota:** Com Ingress configurado, você não precisa do port-forward. O acesso via hostnames customizados funcionará diretamente na porta 80 (HTTP padrão).
 
 ## 🏗️ Arquitetura Clean (Hexagonal)
 

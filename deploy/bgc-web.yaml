@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bgc-web
+  namespace: data
+  labels:
+    app: bgc-web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bgc-web
+  template:
+    metadata:
+      labels:
+        app: bgc-web
+    spec:
+      containers:
+        - name: web
+          image: bgc/bgc-web:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bgc-web
+  namespace: data
+spec:
+  selector:
+    app: bgc-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
