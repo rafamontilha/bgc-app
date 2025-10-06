@@ -6,7 +6,7 @@ Sistema de analytics para dados de exportação brasileira com stack Kubernetes 
 
 ### Opção A: Docker Compose (Recomendado para Desenvolvimento)
 
-```bash
+```powershell
 # 1. Iniciar o stack completo
 cd bgcstack
 docker compose up -d
