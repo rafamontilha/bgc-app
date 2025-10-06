@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bgc-sql-views
+  namespace: data
+data:
+  views.sql: |
+    -- Create quality check views
+    CREATE OR REPLACE VIEW v_quality_orphans_ncm AS
+    SELECT DISTINCT t.ncm
+    FROM trade_ncm_year t
+    LEFT JOIN ncm_lookup l ON l.co_ncm = t.ncm
+    WHERE l.co_ncm IS NULL;

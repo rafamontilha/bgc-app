@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bgc-migrate-0002
+  namespace: data
+data:
+  migrate.sql: |
+    -- Migration 0002: Create main tables and indices
+    -- Tabelas
+    CREATE TABLE IF NOT EXISTS ncm_lookup (
+      co_ncm VARCHAR(8) PRIMARY KEY,
+      no_ncm_por TEXT NOT NULL,
+      co_sh2 VARCHAR(2) NOT NULL,
+      no_sh2_por TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS trade_ncm_year (
+      ncm VARCHAR(8) NOT NULL,
+      ncm_desc TEXT,
+      unidade TEXT,
+      ano INT NOT NULL,
+      valor_usd_fob NUMERIC NOT NULL DEFAULT 0,
+      quantidade_estat NUMERIC NOT NULL DEFAULT 0,
+      fluxo TEXT NOT NULL CHECK (fluxo IN ('exportacao','importacao')),
+      ncm_chapter VARCHAR(2) NOT NULL,
+      PRIMARY KEY (ncm, ano, fluxo)
+    );
+
+    -- Índices
+    CREATE INDEX IF NOT EXISTS idx_trade_year_chapter ON trade_ncm_year (ano, ncm_chapter);
+    CREATE INDEX IF NOT EXISTS idx_trade_fluxo ON trade_ncm_year (fluxo);
+    CREATE INDEX IF NOT EXISTS idx_trade_ncm ON trade_ncm_year (ncm);

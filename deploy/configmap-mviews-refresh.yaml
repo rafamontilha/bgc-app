@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bgc-mviews-refresh-sql
+  namespace: data
+data:
+  refresh.sql: |
+    -- Refresh materialized view
+    REFRESH MATERIALIZED VIEW CONCURRENTLY v_tam_by_year_chapter;

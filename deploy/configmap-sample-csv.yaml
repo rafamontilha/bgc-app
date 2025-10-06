@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bgc-sample-csv
+  namespace: data
+data:
+  sample.csv: |
+    ncm,ano,valor_usd_fob,quantidade_estat,fluxo,ncm_chapter
+    84141010,2023,1000000.50,100,exportacao,84
+    84141010,2023,500000.25,50,importacao,84
+    85371091,2024,2000000.00,200,exportacao,85
+    85371091,2024,750000.00,75,importacao,85

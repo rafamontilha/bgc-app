@@ -23,28 +23,74 @@ pwsh scripts/seed.ps1
 
 ### Opção B: Kubernetes (k3d)
 
-```bash
+```powershell
+# 0. Limpar ambiente (se necessário)
+docker compose -f bgcstack/docker-compose.yml down
+k3d cluster delete bgc 2>$null
+
+# Liberar porta 8080 (se ocupada)
+$processId = Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
+if ($processId) {
+    Stop-Process -Id $processId -Force
+    Write-Host "Porta 8080 liberada"
+}
+
 # 1. Criar cluster k3d
-k3d cluster create bgc --port "8080:80@loadbalancer"
+k3d cluster create bgc
 
-# 2. Instalar PostgreSQL via Helm
-helm repo add bitnami https://charts.bitnami.com/bitnami
-helm install bgc-postgres bitnami/postgresql --namespace default
+# 2. Criar namespace
+kubectl create namespace data
 
-# 3. Executar migrations
-kubectl apply -f deploy/migrations/
+# 3. Deploy PostgreSQL (imagem oficial postgres:16)
+kubectl apply -f deploy/postgres.yaml
 
-# 4. Fazer build e import das imagens
-docker build -t bgc/ingest:dev services/bgc-ingest/
-docker build -t bgc/api:dev api/
-k3d image import bgc/ingest:dev bgc/api:dev -c bgc
+# 4. Criar ConfigMaps (SQL para migrations)
+kubectl apply -f deploy/configmap-migrate-0001.yaml
+kubectl apply -f deploy/configmap-migrate-0002.yaml
+kubectl apply -f deploy/configmap-views.yaml
+kubectl apply -f deploy/configmap-mviews-init.yaml
+kubectl apply -f deploy/configmap-mviews-add-uniq.yaml
+kubectl apply -f deploy/configmap-mviews-populate.yaml
+kubectl apply -f deploy/configmap-mviews-refresh.yaml
+kubectl apply -f deploy/configmap-sample-csv.yaml
 
-# 5. Deploy dos serviços
-kubectl apply -f deploy/api/
-kubectl apply -f deploy/ingest/
+# 5. Aguardar PostgreSQL
+kubectl wait --for=condition=ready pod -l app=postgres -n data --timeout=120s
 
-# 6. Port-forward para acessar API
-kubectl port-forward service/bgc-api 3000:3000
+# 6. Build imagens (NOMES CORRETOS)
+docker build -t bgc/bgc-api:dev api/
+docker build -t bgc/bgc-ingest:dev services/bgc-ingest/
+k3d image import bgc/bgc-api:dev bgc/bgc-ingest:dev -c bgc
+
+# 7. Aplicar migrations (ordem correta)
+kubectl apply -f deploy/bgc-migrate-0001.yaml
+kubectl apply -f deploy/bgc-migrate-0002.yaml
+kubectl apply -f deploy/bgc-create-views.yaml
+
+# 8. Aguardar migrations completarem
+kubectl wait --for=condition=complete job/bgc-migrate-0001 -n data --timeout=120s
+kubectl wait --for=condition=complete job/bgc-migrate-0002 -n data --timeout=120s
+
+# 9. Deploy API
+kubectl apply -f deploy/bgc-api.yaml
+
+# 10. Aguardar API
+kubectl wait --for=condition=ready pod -l app=bgc-api -n data --timeout=120s
+
+# 11. Verificar status
+kubectl get pods -n data
+
+# 12. Port-forward (mantém em execução)
+kubectl port-forward service/bgc-api 8080:8080 -n data
+```
+
+**Testar (em outro terminal PowerShell):**
+```powershell
+# Health check
+curl http://localhost:8080/health
+
+# Market size
+curl "http://localhost:8080/market/size?metric=TAM&year_from=2023&year_to=2024"
 ```
 
 ## 🏗️ Arquitetura Clean (Hexagonal)

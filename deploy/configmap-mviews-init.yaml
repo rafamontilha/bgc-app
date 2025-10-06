@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bgc-mviews-init-sql
+  namespace: data
+data:
+  mviews_init.sql: |
+    -- Create materialized view for market aggregates
+    CREATE MATERIALIZED VIEW IF NOT EXISTS v_tam_by_year_chapter AS
+    SELECT ano, ncm_chapter,
+           SUM(CASE WHEN fluxo='exportacao' THEN valor_usd_fob ELSE 0 END) AS exp_valor_usd,
+           SUM(CASE WHEN fluxo='importacao' THEN valor_usd_fob ELSE 0 END) AS imp_valor_usd,
+           SUM(valor_usd_fob) AS tam_total_usd
+    FROM trade_ncm_year
+    GROUP BY ano, ncm_chapter;
