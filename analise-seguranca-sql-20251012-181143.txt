@@ -1,0 +1,182 @@
+﻿ANÁLISE DE SEGURANÇA - deploy\sql\
+Data: 12/10/2025 18:11:44
+═
+
+OBJETIVO: Determinar quais arquivos SQL podem ser deletados com segurança
+
+CRITÉRIOS DE SEGURANÇA:
+  1. ConfigMap YAML existe com o mesmo conteúdo
+  2. ConfigMap está ativo no cluster (opcional)
+  3. SQL já foi aplicado no banco (para migrations/mviews)
+
+═
+
+[1] migrate_0002_proveniencia.sql
+─
+Tipo: Migration
+Tamanho SQL: 673 bytes
+ConfigMap: ✅ EXISTE (configmap-migrate-0002.yaml)
+Amostra SQL: CREATE EXTENSION IF NOT EXISTS pgcrypto; ALTER TABLE stg.exportacao ADD COLUMN I...
+Conteúdo no ConfigMap: ⚠️  NÃO VERIFICADO
+Cluster:  ATIVO como 'bgc-migrate-0002'
+Banco de Dados: ❌ NÃO APLICADA
+
+
+DECISÃO:  MOVER PARA db/migrations/
+Razão: Migration é documentação histórica do schema
+       NÃO aplicada ainda - aplicar primeiro, depois mover
+
+
+[2] mviews.sql
+─
+Tipo: MView
+Tamanho SQL: 714 bytes
+ConfigMap: ✅ EXISTE (configmap-mviews-init.yaml)
+Amostra SQL: CREATE SCHEMA IF NOT EXISTS rpt; -- MV por ano/setor CREATE MATERIALIZED VIEW IF...
+Conteúdo no ConfigMap: ⚠️  NÃO VERIFICADO
+Cluster:   NÃO ENCONTRADO (pode não ter sido aplicado)
+Banco de Dados:   VIEWS NÃO CONFIRMADAS
+
+
+DECISÃO:   REVISAR MANUALMENTE
+Razão: Não foi possível confirmar equivalência com ConfigMap
+
+
+[3] mviews_add_unique_indexes.sql
+─
+Tipo: MView
+Tamanho SQL: 268 bytes
+ConfigMap: ✅ EXISTE (configmap-mviews-add-uniq.yaml)
+Amostra SQL: -- Unique indexes exigidos para REFRESH MATERIALIZED VIEW CONCURRENTLY CREATE UN...
+Conteúdo no ConfigMap: ⚠️  NÃO VERIFICADO
+Cluster:  ATIVO como 'bgc-mviews-add-uniq'
+Banco de Dados:   VIEWS NÃO CONFIRMADAS
+
+
+DECISÃO:   REVISAR MANUALMENTE
+Razão: Não foi possível confirmar equivalência com ConfigMap
+
+
+[4] mviews_init.sql
+─
+Tipo: MView
+Tamanho SQL: 753 bytes
+ConfigMap: ✅ EXISTE (configmap-mviews-init.yaml)
+Amostra SQL: -- Criação das Materialized Views (sem dados iniciais) CREATE SCHEMA IF NOT EXIS...
+Conteúdo no ConfigMap: ⚠️  NÃO VERIFICADO
+Cluster:   NÃO ENCONTRADO (pode não ter sido aplicado)
+Banco de Dados:   VIEWS NÃO CONFIRMADAS
+
+
+DECISÃO:   REVISAR MANUALMENTE
+Razão: Não foi possível confirmar equivalência com ConfigMap
+
+
+[5] mviews_populate.sql
+─
+Tipo: MView
+Tamanho SQL: 151 bytes
+ConfigMap: ✅ EXISTE (configmap-mviews-populate.yaml)
+Amostra SQL: -- Populate inicial (sem concurrently) REFRESH MATERIALIZED VIEW rpt.mv_exportac...
+Conteúdo no ConfigMap: ⚠️  NÃO VERIFICADO
+Cluster:   NÃO ENCONTRADO (pode não ter sido aplicado)
+Banco de Dados:   VIEWS NÃO CONFIRMADAS
+
+
+DECISÃO:   REVISAR MANUALMENTE
+Razão: Não foi possível confirmar equivalência com ConfigMap
+
+
+[6] mviews_refresh_once.sql
+─
+Tipo: MView
+Tamanho SQL: 137 bytes
+ConfigMap: ✅ EXISTE (configmap-mviews-refresh.yaml)
+Amostra SQL: REFRESH MATERIALIZED VIEW CONCURRENTLY rpt.mv_exportacao_resumo; REFRESH MATERIA...
+Conteúdo no ConfigMap: ⚠️  NÃO VERIFICADO
+Cluster:   NÃO ENCONTRADO (pode não ter sido aplicado)
+Banco de Dados:   VIEWS NÃO CONFIRMADAS
+
+
+DECISÃO:   REVISAR MANUALMENTE
+Razão: Não foi possível confirmar equivalência com ConfigMap
+
+
+[7] views.sql
+─
+Tipo: View
+Tamanho SQL: 514 bytes
+ConfigMap: ✅ EXISTE (configmap-views.yaml)
+Amostra SQL: -- Schema de relatórios CREATE SCHEMA IF NOT EXISTS rpt; -- Resumo por ano/setor...
+Conteúdo no ConfigMap: ⚠️  NÃO VERIFICADO
+Cluster:  ATIVO como 'bgc-sql-views'
+Banco de Dados:   VIEWS NÃO CONFIRMADAS
+
+
+DECISÃO:   REVISAR MANUALMENTE
+Razão: Não foi possível confirmar equivalência com ConfigMap
+
+
+
+
+RESUMO EXECUTIVO
+
+
+Total de arquivos analisados: 7
+
+📦 MOVER PARA db/migrations/ (1):
+
+   • migrate_0002_proveniencia.sql
+     → Migration histórica
+     ⚠️  ATENÇÃO: Aplicar no banco antes de mover!
+
+⚠️  PRECISAM REVISÃO MANUAL (6):
+
+    mviews.sql
+      Verificação manual necessária
+    mviews_add_unique_indexes.sql
+      Verificação manual necessária
+    mviews_init.sql
+      Verificação manual necessária
+    mviews_populate.sql
+      Verificação manual necessária
+    mviews_refresh_once.sql
+      Verificação manual necessária
+    views.sql
+      Verificação manual necessária
+
+
+PLANO DE AÇÃO RECOMENDADO
+
+
+1. CHECKPOINT
+   git add . && git commit -m 'checkpoint: antes de limpar deploy/sql/'
+
+2. APLICAR E MOVER MIGRATION
+   # Primeiro aplicar no banco:
+   kubectl exec pg-postgresql-0 -n data -- \
+     psql -U postgres -d postgres -f /path/to/migrate_0002_proveniencia.sql
+   # Depois mover:
+   Move-Item 'deploy\sql\migrate_0002_proveniencia.sql' 'db\migrations\0003_proveniencia.sql'
+
+4. LIMPAR PASTA VAZIA (se aplicável)
+   if ((Get-ChildItem 'deploy\sql').Count -eq 0) {
+       Remove-Item 'deploy\sql' -Force
+   }
+
+5. TESTAR
+   kubectl get pods -n data
+   curl http://localhost:8080/healthz
+
+6. COMMIT
+   git add .
+   git commit -m 'chore: limpa deploy/sql/ e organiza migrations'
+
+7. REVISAR MANUALMENTE
+   Arquivos marcados para revisão precisam de análise adicional
+
+
+FIM DA ANÁLISE
+
+Relatório gerado automaticamente pelo script de análise de segurança.
+Para executar o plano de ação, revise este relatório e execute os comandos acima.
