@@ -1,4 +1,4 @@
-﻿apiVersion: apps/v1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: bgc-api
@@ -16,19 +16,19 @@ spec:
     spec:
       containers:
         - name: api
-          image: bgc/bgc-api:dev
+          image: bgc-api:v0.2.5
           imagePullPolicy: IfNotPresent
           ports: [{ containerPort: 8080 }]
           env:
             - { name: DB_HOST, value: pg-postgresql.data.svc.cluster.local }
             - { name: DB_PORT, value: "5432" }
-            - { name: DB_USER, value: postgres }
-            - { name: DB_NAME, value: postgres }
+            - { name: DB_USER, value: bgc }
+            - { name: DB_NAME, value: bgc }
             - name: DB_PASS
               valueFrom:
                 secretKeyRef:
                   name: pg-postgresql
-                  key: postgres-password
+                  key: password  # ← ALTERADO DE "postgres-password" PARA "password"
           readinessProbe:
             httpGet: { path: /healthz, port: 8080 }
             initialDelaySeconds: 3

@@ -1,4 +1,4 @@
-﻿apiVersion: v1
+apiVersion: v1
 kind: Secret
 metadata:
   name: pg-postgresql
@@ -6,7 +6,6 @@ metadata:
 type: Opaque
 stringData:
   postgres-password: bgcpassword
-  password: bgcpassword
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
