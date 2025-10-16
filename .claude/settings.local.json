@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

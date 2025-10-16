@@ -20,30 +20,30 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            - name: PGHOST
+            - name: DB_HOST
               value: pg-postgresql.data.svc.cluster.local
-            - name: PGUSER
-              value: postgres
-            - name: PGDATABASE
-              value: postgres
-            - name: PGPORT
+            - name: DB_USER
+              value: bgc
+            - name: DB_NAME
+              value: bgc
+            - name: DB_PORT
               value: "5432"
             - name: PGSSLMODE
               value: disable
-            - name: PGPASSWORD
+            - name: DB_PASS
               valueFrom:
                 secretKeyRef:
                   name: pg-postgresql
                   key: postgres-password
           readinessProbe:
             httpGet:
-              path: /health
+              path: /healthz
               port: 8080
             initialDelaySeconds: 3
             periodSeconds: 5
           livenessProbe:
             httpGet:
-              path: /health
+              path: /healthz
               port: 8080
             initialDelaySeconds: 10
             periodSeconds: 10
@@ -60,3 +60,4 @@ spec:
     - name: http
       port: 8080
       targetPort: 8080
+

@@ -54,12 +54,10 @@ services:
         condition: service_healthy
 
   web:
-    image: nginx:alpine
+    build: ../web
     container_name: bgc_web
     ports:
       - "3000:80"
-    volumes:
-      - ../web:/usr/share/nginx/html:ro
     depends_on:
       - api
     restart: unless-stopped

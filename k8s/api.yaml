@@ -22,8 +22,8 @@ spec:
           env:
             - { name: DB_HOST, value: pg-postgresql.data.svc.cluster.local }
             - { name: DB_PORT, value: "5432" }
-            - { name: DB_USER, value: postgres }
-            - { name: DB_NAME, value: postgres }
+            - { name: DB_USER, value: bgc }
+            - { name: DB_NAME, value: bgc }
             - name: DB_PASS
               valueFrom:
                 secretKeyRef:
