@@ -21,3 +21,14 @@ Thumbs.db
 
 # Logs e artefatos temporários
 *.log
+
+# Arquivos obsoletos e backups
+old/
+backup/
+*.tar
+*.bak
+
+# Relatórios temporários de análise
+*-report.txt
+*-20*.txt
+estrutura.txt

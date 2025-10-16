@@ -14,15 +14,14 @@ spec:
             name: bgc-sample-csv
       containers:
         - name: ingest
-          image: bgc/bgc-ingest:dev-20250820213009
-          # CSV acima usa vírgula e ponto, então:
+          image: bgc/bgc-ingest:dev
+          imagePullPolicy: IfNotPresent
           args:
             - load-csv
             - --path=/data/sample.csv
             - --sep=,
             - --dec=.
             - --header=true
-
           env:
             - name: PGHOST
               value: pg-postgresql.data.svc.cluster.local

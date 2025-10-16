@@ -1,4 +1,4 @@
-apiVersion: apps/v1
+﻿apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: bgc-api
@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: bgc-api:v0.2.5
+          image: bgc/bgc-api:dev
           imagePullPolicy: IfNotPresent
           ports: [{ containerPort: 8080 }]
           env:
@@ -28,7 +28,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: pg-postgresql
-                  key: password  # ← ALTERADO DE "postgres-password" PARA "password"
+                  key: postgres-password
           readinessProbe:
             httpGet: { path: /healthz, port: 8080 }
             initialDelaySeconds: 3

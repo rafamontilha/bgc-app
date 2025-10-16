@@ -153,7 +153,9 @@
 <script>
 (function(){
   const $ = (s)=>document.querySelector(s);
-  const api = (p)=>`http://localhost:8080${p}`;
+  // Use proxy nginx quando servido via web container, ou API direta em dev local
+  const API_BASE = window.location.port === '3000' ? '' : 'http://localhost:8080';
+  const api = (p)=>`${API_BASE}${p}`;
   const nf = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
   const metricEl = $('#metric');
