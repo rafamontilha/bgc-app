@@ -1,0 +1,65 @@
+BGC App - Sistema de Analytics de Exportação
+Copyright (C) 2025 Brasil Global Connect
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+===============================================================================
+
+NETWORK USE NOTICE (AGPL Section 13):
+
+This software is designed to be used over a network. If you modify this
+program and allow users to interact with it remotely through a computer
+network, you MUST provide those users with access to the complete
+Corresponding Source code of your modified version.
+
+The source code for this application is available at:
+https://github.com/rafamontilha/bgc-app
+
+===============================================================================
+
+THIRD-PARTY COMPONENTS:
+
+This software uses the following third-party open source components:
+
+Backend (Go):
+- Go 1.23+ (BSD-3-Clause)
+- Gin Web Framework (MIT)
+- PostgreSQL Driver (MIT)
+- Additional dependencies listed in api/go.mod
+
+Frontend:
+- HTML5, CSS3, JavaScript (Standards)
+- Chart.js (MIT) - if applicable
+- Bootstrap (MIT) - if applicable
+
+Database:
+- PostgreSQL 16 (PostgreSQL License)
+
+Infrastructure:
+- Docker (Apache 2.0)
+- Kubernetes (Apache 2.0)
+- Nginx (BSD-2-Clause)
+
+For complete license information of third-party components, please refer
+to their respective LICENSE files and documentation.
+
+===============================================================================
+
+CONTACT:
+
+For questions about licensing or to obtain the source code, please visit:
+https://github.com/rafamontilha/bgc-app
+
+For issues and contributions:
+https://github.com/rafamontilha/bgc-app/issues

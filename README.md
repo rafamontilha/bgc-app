@@ -1,6 +1,12 @@
 # BGC App - Sistema de Analytics de Exportação
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go)](https://golang.org)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-316192?logo=postgresql)](https://www.postgresql.org)
+
 Sistema de analytics para dados de exportação brasileira com API Go, Frontend Web e PostgreSQL.
+
+**Open Source** sob licença AGPL v3 - Garantindo que melhorias permaneçam livres e acessíveis à comunidade.
 
 ## 🚀 Quick Start
 
@@ -375,7 +381,29 @@ netstat -ano | findstr :8080
 
 ## 📝 Licença
 
-Este projeto está sob licença MIT.
+Este projeto está licenciado sob a **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+
+### O que isso significa?
+
+- ✅ **Liberdade de usar** - Você pode usar este software para qualquer propósito
+- ✅ **Liberdade de estudar** - Você pode examinar como o software funciona
+- ✅ **Liberdade de modificar** - Você pode modificar o software
+- ✅ **Liberdade de distribuir** - Você pode distribuir cópias do software
+- ⚠️ **Copyleft de rede** - Se você executar uma versão modificada em um servidor e permitir que outros usuários interajam com ela pela rede, você **deve** disponibilizar o código-fonte modificado
+
+### Por que AGPL?
+
+Escolhemos a AGPL v3 para garantir que:
+- Melhorias ao software permaneçam livres e abertas
+- Empresas que usam o software como SaaS contribuam com melhorias de volta à comunidade
+- O ecossistema de dados de exportação brasileira se beneficie do conhecimento compartilhado
+
+### Arquivos de Licença
+
+- `LICENSE` - Texto completo da licença AGPL v3
+- `NOTICE` - Avisos de copyright e informações de componentes
+
+Para mais informações, consulte: https://www.gnu.org/licenses/agpl-3.0.html
 
 ---
 
