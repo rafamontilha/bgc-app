@@ -55,6 +55,17 @@ Sistema de analytics para dados de exportação brasileira com API Go, Frontend 
 
 ## 🎯 Scripts de Gerenciamento
 
+### Makefile (Multiplataforma)
+
+```bash
+make help                # Mostrar todos os comandos disponíveis
+make docker-up           # Iniciar Docker Compose
+make k8s-setup           # Setup inicial Kubernetes
+make k8s-status          # Status do cluster
+make seed                # Carregar dados de exemplo
+make restore-backup      # Restaurar backup do PostgreSQL
+```
+
 ### Docker Compose
 
 ```powershell
@@ -76,18 +87,22 @@ Sistema de analytics para dados de exportação brasileira com API Go, Frontend 
 .\scripts\k8s.ps1 down           # Remover deployments
 .\scripts\k8s.ps1 restart        # Reiniciar pods
 .\scripts\k8s.ps1 logs           # Ver logs
-.\scripts\k8s.ps1 status         # Status do cluster
+.\scripts\k8s.ps1 status         # Status do cluster (inclui HPA e CronJobs)
 .\scripts\k8s.ps1 build          # Rebuildar imagens
 .\scripts\k8s.ps1 open           # Abrir no browser
 .\scripts\k8s.ps1 clean          # Deletar cluster
 .\scripts\k8s.ps1 help           # Ajuda
 ```
 
-### Seed de Dados (Opcional)
+### Gerenciamento de Dados
 
 ```powershell
 # Carregar dados de exemplo
 .\scripts\seed.ps1
+
+# Restaurar backup (Kubernetes)
+.\scripts\restore-backup.ps1                    # Listar backups
+.\scripts\restore-backup.ps1 -BackupFile <nome> # Restaurar específico
 ```
 
 ---
@@ -126,9 +141,13 @@ bgc-app/
 │   └── configmap-*.yaml
 │
 ├── k8s/                      # Kubernetes Manifests (serviços)
-│   ├── api.yaml
-│   ├── web.yaml
-│   └── web-nginx-configmap.yaml
+│   ├── api.yaml                     # Deployment API com probes e resources
+│   ├── api-hpa.yaml                 # HPA para API
+│   ├── web.yaml                     # Deployment WEB com probes e resources
+│   ├── web-hpa.yaml                 # HPA para WEB
+│   ├── web-nginx-configmap.yaml     # ConfigMap Nginx
+│   ├── postgres-backup-cronjob.yaml # CronJob backup PostgreSQL
+│   └── mview-refresh-cronjob.yaml   # CronJob refresh mviews
 │
 ├── bgcstack/                 # Docker Compose
 │   └── docker-compose.yml
@@ -137,9 +156,12 @@ bgc-app/
 │   ├── docker.ps1           # Gerenciar Docker Compose
 │   ├── k8s.ps1              # Gerenciar Kubernetes
 │   ├── configure-hosts.ps1  # Configurar hosts
-│   └── seed.ps1             # Seed de dados
+│   ├── seed.ps1             # Seed de dados
+│   └── restore-backup.ps1   # Restaurar backup PostgreSQL
 │
-└── docs/                     # Documentação técnica
+├── docs/                     # Documentação técnica
+├── Makefile                  # Wrapper multiplataforma
+└── CHANGELOG.md              # Histórico de mudanças
 ```
 
 ---
@@ -369,6 +391,77 @@ netstat -ano | findstr :8080
 
 ---
 
+## 📊 Observabilidade e Resiliência
+
+### Health Probes (Kubernetes)
+
+Todos os serviços possuem health checks configurados:
+
+**API e WEB:**
+- **Readiness Probe**: Verifica se o pod está pronto para receber tráfego
+- **Liveness Probe**: Detecta e reinicia pods travados automaticamente
+
+```bash
+# Verificar status dos probes
+kubectl describe pod -n data -l app=bgc-api | grep -A 5 Probes
+```
+
+### Horizontal Pod Autoscaling (HPA)
+
+Escala automática baseada em CPU e memória:
+
+**API:**
+- Min: 1 pod, Max: 5 pods
+- Target: 70% CPU, 80% Memory
+
+**WEB:**
+- Min: 1 pod, Max: 3 pods
+- Target: 70% CPU, 80% Memory
+
+```bash
+# Visualizar status do HPA
+kubectl get hpa -n data
+
+# Ver métricas em tempo real
+kubectl top pods -n data
+```
+
+### Backups Automatizados
+
+**CronJob de Backup PostgreSQL:**
+- Executa diariamente às 02:00
+- Mantém os últimos 7 backups
+- Backups comprimidos (.sql.gz)
+- Armazenados em PVC persistente
+
+```bash
+# Listar backups disponíveis
+.\scripts\restore-backup.ps1
+
+# Trigger backup manual
+kubectl create job --from=cronjob/postgres-backup manual-backup -n data
+
+# Restaurar backup
+.\scripts\restore-backup.ps1 -BackupFile bgc_backup_YYYYMMDD_HHMMSS.sql.gz
+```
+
+### Materialized Views Refresh
+
+**CronJob de Refresh:**
+- Executa diariamente às 03:00
+- Atualiza todas as materialized views
+- Usa refresh concorrente (sem lock)
+
+```bash
+# Ver status dos CronJobs
+kubectl get cronjobs -n data
+
+# Ver histórico de execuções
+kubectl get jobs -n data
+```
+
+---
+
 ## 🤝 Contribuindo
 
 1. Faça fork do projeto
@@ -409,15 +502,35 @@ Para mais informações, consulte: https://www.gnu.org/licenses/agpl-3.0.html
 
 ## ✨ Features
 
-- ✅ API REST com Clean Architecture
+### Core
+- ✅ API REST com Clean Architecture (Go 1.23)
 - ✅ Dashboard interativo TAM/SAM/SOM
 - ✅ Comparação de rotas de exportação
-- ✅ Deploy via Docker Compose
-- ✅ Deploy via Kubernetes
-- ✅ Health checks e observabilidade
-- ✅ Proxy reverso Nginx
-- ✅ Migrations automáticas
-- ✅ Scripts de gerenciamento simplificados
+- ✅ PostgreSQL 16 com Materialized Views
+- ✅ Migrations automáticas com rastreabilidade
+
+### Deployment
+- ✅ Docker Compose para desenvolvimento
+- ✅ Kubernetes (k3d) para produção simulada
+- ✅ Scripts PowerShell unificados
+- ✅ Makefile multiplataforma
+- ✅ Proxy reverso Nginx com Traefik Ingress
+
+### Observabilidade & Resiliência
+- ✅ Health probes (readiness/liveness)
+- ✅ Horizontal Pod Autoscaling (HPA)
+- ✅ Resource limits e requests
+- ✅ Backups automáticos diários do PostgreSQL
+- ✅ Refresh automático de materialized views
+- ✅ Métricas de API (/metrics endpoint)
+
+### DevOps
+- ✅ CronJobs para backup e refresh de dados
+- ✅ Script de restore de backups
+- ✅ Ingress com Traefik
+- ✅ ConfigMaps para configuração
+- ✅ Secrets para credenciais
+- ✅ CHANGELOG.md com versionamento semântico
 
 ---
 
