@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backups
+  namespace: data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: data
+spec:
+  schedule: "0 2 * * *"  # 02:00 todos os dias
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: postgres-backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: postgres:16
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: pg-postgresql
+                      key: postgres-password
+                - name: BACKUP_DIR
+                  value: /backups
+                - name: PGHOST
+                  value: pg-postgresql.data.svc.cluster.local
+                - name: PGUSER
+                  value: bgc
+                - name: PGDATABASE
+                  value: bgc
+              command: ["/bin/bash", "-c"]
+              args:
+                - |
+                  set -e
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  BACKUP_FILE="${BACKUP_DIR}/bgc_backup_${TIMESTAMP}.sql.gz"
+
+                  echo "$(date): Starting backup to ${BACKUP_FILE}"
+
+                  # Criar backup comprimido
+                  pg_dump -h ${PGHOST} -U ${PGUSER} -d ${PGDATABASE} --verbose --no-owner --no-acl | gzip > ${BACKUP_FILE}
+
+                  # Verificar se backup foi criado
+                  if [ -f "${BACKUP_FILE}" ]; then
+                    SIZE=$(du -h ${BACKUP_FILE} | cut -f1)
+                    echo "$(date): Backup completed successfully (${SIZE})"
+
+                    # Manter apenas os últimos 7 backups
+                    cd ${BACKUP_DIR}
+                    ls -t bgc_backup_*.sql.gz | tail -n +8 | xargs -r rm -f
+                    echo "$(date): Old backups cleaned up"
+
+                    # Listar backups disponíveis
+                    echo "$(date): Available backups:"
+                    ls -lh bgc_backup_*.sql.gz 2>/dev/null || echo "No backups found"
+                  else
+                    echo "$(date): ERROR - Backup file not created!"
+                    exit 1
+                  fi
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: postgres-backups

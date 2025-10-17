@@ -72,16 +72,32 @@ function Deploy-Services {
     Write-Host "⏳ Waiting for PostgreSQL..." -ForegroundColor Yellow
     kubectl wait --for=condition=ready pod -l app=postgres -n $Namespace --timeout=120s
 
+    # PostgreSQL Backup CronJob
+    kubectl apply -f k8s/postgres-backup-cronjob.yaml
+    Write-Host "✅ Backup CronJob configured" -ForegroundColor Green
+
+    # Materialized View Refresh CronJob
+    kubectl apply -f k8s/mview-refresh-cronjob.yaml
+    Write-Host "✅ MView Refresh CronJob configured" -ForegroundColor Green
+
     # API
-    kubectl apply -f deploy/bgc-api.yaml
+    kubectl apply -f k8s/api.yaml
     Write-Host "⏳ Waiting for API..." -ForegroundColor Yellow
     kubectl wait --for=condition=ready pod -l app=bgc-api -n $Namespace --timeout=120s
+
+    # API HPA
+    kubectl apply -f k8s/api-hpa.yaml
+    Write-Host "✅ API HPA configured" -ForegroundColor Green
 
     # Web (with ConfigMap)
     kubectl apply -f k8s/web-nginx-configmap.yaml
     kubectl apply -f k8s/web.yaml
     Write-Host "⏳ Waiting for Web..." -ForegroundColor Yellow
     kubectl wait --for=condition=ready pod -l app=bgc-web -n $Namespace --timeout=60s
+
+    # Web HPA
+    kubectl apply -f k8s/web-hpa.yaml
+    Write-Host "✅ Web HPA configured" -ForegroundColor Green
 
     Write-Host "`n✅ All services deployed!" -ForegroundColor Green
 }
@@ -131,8 +147,12 @@ switch ($Command.ToLower()) {
 
     "down" {
         Write-Host "🛑 Deleting deployments..." -ForegroundColor Yellow
+        kubectl delete -f k8s/web-hpa.yaml --ignore-not-found
         kubectl delete -f k8s/web.yaml --ignore-not-found
-        kubectl delete -f deploy/bgc-api.yaml --ignore-not-found
+        kubectl delete -f k8s/api-hpa.yaml --ignore-not-found
+        kubectl delete -f k8s/api.yaml --ignore-not-found
+        kubectl delete -f k8s/mview-refresh-cronjob.yaml --ignore-not-found
+        kubectl delete -f k8s/postgres-backup-cronjob.yaml --ignore-not-found
         kubectl delete -f deploy/postgres.yaml --ignore-not-found
         kubectl delete -f k8s/web-nginx-configmap.yaml --ignore-not-found
         Write-Host "✅ Deployments deleted!" -ForegroundColor Green
@@ -175,6 +195,10 @@ switch ($Command.ToLower()) {
         kubectl get svc -n $Namespace
         Write-Host "`n🔗 Ingress:" -ForegroundColor Cyan
         kubectl get ingress -n $Namespace
+        Write-Host "`n📈 HPA (Horizontal Pod Autoscaler):" -ForegroundColor Cyan
+        kubectl get hpa -n $Namespace
+        Write-Host "`n⏰ CronJobs:" -ForegroundColor Cyan
+        kubectl get cronjobs -n $Namespace
         break
     }
 
