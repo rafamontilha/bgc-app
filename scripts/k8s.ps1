@@ -38,10 +38,10 @@ EXAMPLES:
 
 URLS:
     Web UI:  http://web.bgc.local
-    Routes:  http://web.bgc.local/routes.html
-    API:     http://web.bgc.local/healthz
+    Routes:  http://web.bgc.local/routes
+    API:     http://api.bgc.local/healthz
 
-NOTE: Run 'configure-hosts.ps1' as Administrator to configure web.bgc.local
+NOTE: Run 'setup-hosts.ps1' as Administrator to configure web.bgc.local
 
 "@ -ForegroundColor Cyan
 }
@@ -54,13 +54,13 @@ function Test-ClusterExists {
 function Build-Images {
     Write-Host "🔨 Building Docker images..." -ForegroundColor Yellow
     docker build -t bgc/bgc-api:dev api/
-    docker build -t bgc/bgc-web:dev web/
+    docker build -t bgc/bgc-web:latest web-next/
     Write-Host "✅ Images built!" -ForegroundColor Green
 }
 
 function Import-Images {
     Write-Host "📦 Importing images to k3d..." -ForegroundColor Yellow
-    k3d image import bgc/bgc-api:dev bgc/bgc-web:dev -c $ClusterName
+    k3d image import bgc/bgc-api:dev bgc/bgc-web:latest -c $ClusterName
     Write-Host "✅ Images imported!" -ForegroundColor Green
 }
 
@@ -89,8 +89,7 @@ function Deploy-Services {
     kubectl apply -f k8s/api-hpa.yaml
     Write-Host "✅ API HPA configured" -ForegroundColor Green
 
-    # Web (with ConfigMap)
-    kubectl apply -f k8s/web-nginx-configmap.yaml
+    # Web
     kubectl apply -f k8s/web.yaml
     Write-Host "⏳ Waiting for Web..." -ForegroundColor Yellow
     kubectl wait --for=condition=ready pod -l app=bgc-web -n $Namespace --timeout=60s
@@ -128,7 +127,7 @@ switch ($Command.ToLower()) {
 
         Write-Host "`n✅ Setup complete!" -ForegroundColor Green
         Write-Host "`n⚠️  IMPORTANT: Run as Administrator:" -ForegroundColor Yellow
-        Write-Host "    .\configure-hosts.ps1" -ForegroundColor Cyan
+        Write-Host "    .\scripts\setup-hosts.ps1" -ForegroundColor Cyan
         Write-Host "`nThen access: http://web.bgc.local" -ForegroundColor Cyan
         break
     }
@@ -154,7 +153,6 @@ switch ($Command.ToLower()) {
         kubectl delete -f k8s/mview-refresh-cronjob.yaml --ignore-not-found
         kubectl delete -f k8s/postgres-backup-cronjob.yaml --ignore-not-found
         kubectl delete -f deploy/postgres.yaml --ignore-not-found
-        kubectl delete -f k8s/web-nginx-configmap.yaml --ignore-not-found
         Write-Host "✅ Deployments deleted!" -ForegroundColor Green
         break
     }
@@ -222,10 +220,10 @@ switch ($Command.ToLower()) {
         if ($hostsContent -notmatch "web.bgc.local") {
             Write-Host "⚠️  web.bgc.local not configured in hosts file!" -ForegroundColor Yellow
             Write-Host "Run as Administrator:" -ForegroundColor Yellow
-            Write-Host "    .\configure-hosts.ps1" -ForegroundColor Cyan
+            Write-Host "    .\scripts\setup-hosts.ps1" -ForegroundColor Cyan
         } else {
             Start-Process "http://web.bgc.local"
-            Start-Process "http://web.bgc.local/routes.html"
+            Start-Process "http://web.bgc.local/routes"
             Write-Host "✅ Browser opened!" -ForegroundColor Green
         }
         break

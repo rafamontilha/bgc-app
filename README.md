@@ -4,37 +4,40 @@
 [![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go)](https://golang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-316192?logo=postgresql)](https://www.postgresql.org)
 
-Sistema de analytics para dados de exportação brasileira com API Go, Frontend Web e PostgreSQL.
+Sistema de analytics para dados de exportação brasileira com:
+- **API REST** em Go (Gin framework)
+- **Frontend** em Next.js 15 (React, TypeScript, Tailwind CSS)
+- **Banco de Dados** PostgreSQL 16
 
 **Open Source** sob licença AGPL v3 - Garantindo que melhorias permaneçam livres e acessíveis à comunidade.
 
 ## 🚀 Quick Start
 
-### Opção 1: Docker Compose (Recomendado para Desenvolvimento)
+### Kubernetes com k3d (Recomendado)
+
+```powershell
+# 1. Setup inicial (primeira vez)
+.\scripts\k8s.ps1 setup
+
+# 2. Configurar hosts (executar como Administrador)
+.\scripts\setup-hosts.ps1
+
+# 3. Acessar aplicação
+# Web UI:  http://web.bgc.local
+# Routes:  http://web.bgc.local/routes
+# API:     http://api.bgc.local/healthz
+```
+
+### Docker Compose (Desenvolvimento Local)
 
 ```powershell
 # Iniciar ambiente
 .\scripts\docker.ps1 up
 
 # URLs disponíveis:
+# Web:     http://localhost:3000
 # API:     http://localhost:8080
-# Web UI:  http://localhost:3000
 # PgAdmin: http://localhost:5050 (admin@bgc.dev / admin)
-```
-
-### Opção 2: Kubernetes (k3d)
-
-```powershell
-# Setup inicial (primeira vez)
-.\scripts\k8s.ps1 setup
-
-# Configurar hosts (executar como Administrador)
-.\scripts\configure-hosts.ps1
-
-# URLs disponíveis:
-# Web UI:  http://web.bgc.local
-# Routes:  http://web.bgc.local/routes.html
-# API:     http://web.bgc.local/healthz
 ```
 
 ---
@@ -122,11 +125,14 @@ bgc-app/
 │   ├── Dockerfile
 │   └── go.mod
 │
-├── web/                      # Frontend (HTML/JS/CSS)
-│   ├── index.html           # Dashboard TAM/SAM/SOM
-│   ├── routes.html          # Comparação de rotas
-│   ├── nginx.conf           # Configuração Nginx
-│   └── Dockerfile
+├── web-next/                 # Frontend Next.js 15 (React + TypeScript)
+│   ├── app/                 # App Router do Next.js
+│   ├── components/          # Componentes React
+│   ├── lib/                 # Utilitários e API client
+│   ├── hooks/               # Custom React Hooks
+│   ├── types/               # TypeScript types
+│   ├── Dockerfile
+│   └── package.json
 │
 ├── services/                 # Microserviços auxiliares
 │   └── bgc-ingest/          # Serviço de ingestão
@@ -135,31 +141,31 @@ bgc-app/
 │   ├── init/                # Schema inicial (Docker Compose)
 │   └── migrations/          # Migrations SQL
 │
-├── deploy/                   # Kubernetes Manifests (jobs, migrations)
+├── k8s/                      # Kubernetes Manifests (serviços)
+│   ├── api.yaml             # Deployment API com HPA
+│   ├── web.yaml             # Deployment Web Next.js com HPA
+│   ├── postgres-backup-cronjob.yaml
+│   └── mview-refresh-cronjob.yaml
+│
+├── deploy/                   # Kubernetes Jobs (migrations, seeds)
 │   ├── postgres.yaml
-│   ├── bgc-api.yaml
 │   └── configmap-*.yaml
 │
-├── k8s/                      # Kubernetes Manifests (serviços)
-│   ├── api.yaml                     # Deployment API com probes e resources
-│   ├── api-hpa.yaml                 # HPA para API
-│   ├── web.yaml                     # Deployment WEB com probes e resources
-│   ├── web-hpa.yaml                 # HPA para WEB
-│   ├── web-nginx-configmap.yaml     # ConfigMap Nginx
-│   ├── postgres-backup-cronjob.yaml # CronJob backup PostgreSQL
-│   └── mview-refresh-cronjob.yaml   # CronJob refresh mviews
-│
-├── bgcstack/                 # Docker Compose
-│   └── docker-compose.yml
-│
 ├── scripts/                  # Scripts de automação
-│   ├── docker.ps1           # Gerenciar Docker Compose
 │   ├── k8s.ps1              # Gerenciar Kubernetes
-│   ├── configure-hosts.ps1  # Configurar hosts
-│   ├── seed.ps1             # Seed de dados
-│   └── restore-backup.ps1   # Restaurar backup PostgreSQL
+│   ├── setup-hosts.ps1      # Configurar hosts
+│   ├── start-api.ps1        # Iniciar API local
+│   ├── start-web-next.ps1   # Iniciar Web Next.js local
+│   └── test-web-next.ps1    # Testar Web Next.js
 │
 ├── docs/                     # Documentação técnica
+│   ├── QUICK-START.md
+│   ├── SETUP-NEXTJS.md
+│   └── TROUBLESHOOTING-NEXTJS.md
+│
+├── old/                      # Arquivos legados (histórico)
+│   └── web-legacy-html/     # Frontend HTML antigo
+│
 ├── Makefile                  # Wrapper multiplataforma
 └── CHANGELOG.md              # Histórico de mudanças
 ```

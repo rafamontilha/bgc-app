@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(kubectl logs:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

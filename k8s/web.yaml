@@ -5,44 +5,47 @@ metadata:
   namespace: data
   labels: { app: bgc-web }
 spec:
-  replicas: 1
+  replicas: 2
   selector: { matchLabels: { app: bgc-web } }
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxSurge: 1, maxUnavailable: 0 }
   template:
     metadata:
       labels: { app: bgc-web }
     spec:
       containers:
         - name: web
-          image: bgc/bgc-web:dev
+          image: bgc/bgc-web:latest
           imagePullPolicy: IfNotPresent
-          ports: [{ containerPort: 80 }]
+          ports: [{ containerPort: 3000 }]
+          env:
+            # API URL interna do Kubernetes
+            - name: API_URL
+              value: "http://bgc-api:8080"
+            - name: NODE_ENV
+              value: "production"
+            - name: NEXT_TELEMETRY_DISABLED
+              value: "1"
           resources:
             requests:
-              cpu: 50m
-              memory: 64Mi
+              cpu: 100m
+              memory: 128Mi
             limits:
-              cpu: 200m
-              memory: 256Mi
+              cpu: 500m
+              memory: 512Mi
           readinessProbe:
-            httpGet: { path: /, port: 80 }
-            initialDelaySeconds: 3
-            periodSeconds: 5
-            timeoutSeconds: 1
-            failureThreshold: 3
-          livenessProbe:
-            httpGet: { path: /, port: 80 }
-            initialDelaySeconds: 10
+            httpGet: { path: /api/health, port: 3000 }
+            initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 3
-          volumeMounts:
-            - name: nginx-config
-              mountPath: /etc/nginx/conf.d/default.conf
-              subPath: default.conf
-      volumes:
-        - name: nginx-config
-          configMap:
-            name: bgc-web-nginx-config
+          livenessProbe:
+            httpGet: { path: /api/health, port: 3000 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
 ---
 apiVersion: v1
 kind: Service
@@ -55,8 +58,8 @@ spec:
   selector: { app: bgc-web }
   ports:
     - name: http
-      port: 80
-      targetPort: 80
+      port: 3000
+      targetPort: 3000
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -77,4 +80,30 @@ spec:
               service:
                 name: bgc-web
                 port:
-                  number: 80
+                  number: 3000
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: bgc-web-hpa
+  namespace: data
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: bgc-web
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
