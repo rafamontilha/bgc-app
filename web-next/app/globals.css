@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+:root {
+  /* Material Design 3 - Dark Theme (BGC) */
+  --md-sys-color-background: #0b1220;
+  --md-sys-color-surface: #111a2b;
+  --md-sys-color-surface-variant: #0f1726;
+  --md-sys-color-primary: #3b82f6;
+  --md-sys-color-secondary: #16b1ff;
+  --md-sys-color-error: #ef4444;
+  --md-sys-color-success: #22c55e;
+
+  --md-sys-color-on-background: #e6edf3;
+  --md-sys-color-on-surface: #e6edf3;
+  --md-sys-color-on-surface-variant: #9fb0c3;
+  --md-sys-color-on-primary: #ffffff;
+
+  --md-sys-color-outline: #1f2a44;
+  --md-sys-color-outline-variant: #22324d;
+
+  /* Typography */
+  --md-sys-typescale-display-large: 400 57px/64px 'Roboto', sans-serif;
+  --md-sys-typescale-headline-medium: 400 28px/36px 'Roboto', sans-serif;
+  --md-sys-typescale-title-large: 400 22px/28px 'Roboto', sans-serif;
+  --md-sys-typescale-body-large: 400 16px/24px 'Roboto', sans-serif;
+  --md-sys-typescale-body-medium: 400 14px/20px 'Roboto', sans-serif;
+  --md-sys-typescale-label-large: 500 14px/20px 'Roboto', sans-serif;
+
+  /* Elevation */
+  --md-sys-elevation-1: 0 1px 2px 0 rgba(0,0,0,0.3), 0 1px 3px 1px rgba(0,0,0,0.15);
+  --md-sys-elevation-2: 0 1px 2px 0 rgba(0,0,0,0.3), 0 2px 6px 2px rgba(0,0,0,0.15);
+  --md-sys-elevation-3: 0 4px 8px 3px rgba(0,0,0,0.15), 0 1px 3px 0 rgba(0,0,0,0.3);
+}
+
+@theme inline {
+  /* Tailwind custom colors baseados em Material Design 3 */
+  --color-background: var(--md-sys-color-background);
+  --color-surface: var(--md-sys-color-surface);
+  --color-surface-variant: var(--md-sys-color-surface-variant);
+  --color-primary: var(--md-sys-color-primary);
+  --color-secondary: var(--md-sys-color-secondary);
+  --color-error: var(--md-sys-color-error);
+  --color-success: var(--md-sys-color-success);
+
+  --color-on-background: var(--md-sys-color-on-background);
+  --color-on-surface: var(--md-sys-color-on-surface);
+  --color-on-surface-variant: var(--md-sys-color-on-surface-variant);
+  --color-on-primary: var(--md-sys-color-on-primary);
+
+  --color-outline: var(--md-sys-color-outline);
+  --color-outline-variant: var(--md-sys-color-outline-variant);
+
+  /* Border radius Material Design */
+  --radius-md-sm: 8px;
+  --radius-md-md: 12px;
+  --radius-md-lg: 16px;
+  --radius-md-xl: 28px;
+}
+
+body {
+  background: radial-gradient(1200px 800px at 20% -10%, #13203a 0, #0b1220 40%, #0b1220 100%);
+  color: var(--md-sys-color-on-background);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Roboto', sans-serif;
+  min-height: 100vh;
+  margin: 0;
+}
+
+* {
+  box-sizing: border-box;
+}

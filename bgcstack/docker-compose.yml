@@ -36,6 +36,10 @@ services:
   api:
     build: ../api
     container_name: bgc_api
+    networks:
+      default:
+        aliases:
+          - bgc-api
     environment:
       DB_HOST: db
       DB_PORT: "5432"
@@ -54,10 +58,14 @@ services:
         condition: service_healthy
 
   web:
-    build: ../web
+    build: ../web-next
     container_name: bgc_web
+    environment:
+      API_URL: "http://bgc-api:8080"
+      NODE_ENV: "production"
+      NEXT_TELEMETRY_DISABLED: "1"
     ports:
-      - "3000:80"
+      - "3000:3000"
     depends_on:
       - api
     restart: unless-stopped

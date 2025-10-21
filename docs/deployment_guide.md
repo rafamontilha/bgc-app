@@ -72,7 +72,7 @@ curl "http://localhost:8080/routes/compare?from=USA&alts=CHN&ncm_chapter=84&year
 #### 5. Acessar Web Dashboard
 Abrir navegador em:
 - Dashboard TAM/SAM/SOM: http://localhost:3000
-- Comparação de Rotas: http://localhost:3000/routes.html
+- Comparação de Rotas: http://localhost:3000/routes
 - Documentação API: http://localhost:8080/docs
 
 ### Comandos Úteis - Docker Compose
@@ -233,13 +233,13 @@ kubectl logs job/bgc-migration-0001
 ```bash
 # API (Clean Architecture)
 cd api
-docker build -t bgc/api:dev .
+docker build -t bgc/bgc-api:dev .
 cd ..
 
-# Ingest  
-cd services/bgc-ingest
-docker build -t bgc/ingest:dev .
-cd ../..
+# Web Next.js
+cd web-next
+docker build -t bgc/bgc-web:latest .
+cd ..
 
 # Verificar imagens
 docker images | grep bgc
@@ -248,7 +248,7 @@ docker images | grep bgc
 ##### Import no k3d
 ```bash
 # Importar ambas as imagens
-k3d image import bgc/api:dev bgc/ingest:dev -c bgc
+k3d image import bgc/bgc-api:dev bgc/bgc-web:latest -c bgc
 
 # Verificar no cluster
 k3d image list -c bgc
@@ -257,34 +257,34 @@ k3d image list -c bgc
 ##### Deploy Kubernetes
 ```bash
 # Deploy API
-kubectl apply -f deploy/api/
+kubectl apply -f k8s/api.yaml
+kubectl apply -f k8s/api-hpa.yaml
 
-# Deploy Ingest (CronJob)
-kubectl apply -f deploy/ingest/
+# Deploy Web
+kubectl apply -f k8s/web.yaml
+
+# Deploy CronJobs
+kubectl apply -f k8s/postgres-backup-cronjob.yaml
+kubectl apply -f k8s/mview-refresh-cronjob.yaml
 
 # Verificar deployments
-kubectl get deployments
-kubectl get cronjobs
-kubectl get pods
+kubectl get deployments -n data
+kubectl get cronjobs -n data
+kubectl get pods -n data
 ```
 
 #### 5. Carregar Dados de Exemplo
 ```bash
-# Executar job de carga
-kubectl create job load-sample-$(date +%s) \
-  --from=cronjob/bgc-ingest \
-  -- load-xlsx /data/sample.xlsx
+# Usar script automatizado
+pwsh scripts/seed.ps1
 
-# Verificar progresso
-kubectl get jobs
-kubectl logs job/load-sample-<timestamp>
+# Ou manualmente com psql
+kubectl exec -it deployment/postgres -n data -- psql -U bgc -d bgc
 
 # Validar dados carregados
-kubectl run psql-client --rm -it --image bitnami/postgresql:latest -- \
-  /opt/bitnami/scripts/postgresql/entrypoint.sh \
-  /opt/bitnami/postgresql/bin/psql \
-  -h bgc-postgres -U postgres \
-  -c "SELECT COUNT(*) FROM stg.exportacao;"
+# Dentro do psql:
+SELECT COUNT(*) FROM exports_ncm_year;
+SELECT COUNT(*) FROM imports_ncm_year;
 ```
 
 #### 6. Refresh Materialized Views
@@ -301,14 +301,17 @@ kubectl logs job/refresh-mv-<timestamp>
 # SQL: SELECT COUNT(*) FROM rpt.mv_resumo_pais;
 ```
 
-#### 7. Teste da API
+#### 7. Teste da Aplicação
 ```bash
-# Port-forward (execute em terminal separado)
-kubectl port-forward service/bgc-api 3000:3000
+# Acessar via Ingress (requer setup-hosts.ps1)
+# Dashboard
+curl http://web.bgc.local
 
-# Em outro terminal, testar endpoints
-curl http://localhost:3000/metrics/resumo
-curl http://localhost:3000/metrics/pais?limit=5
+# API health
+curl http://api.bgc.local/healthz
+
+# Market size
+curl "http://api.bgc.local/market/size?metric=TAM&year_from=2024&year_to=2025"
 ```
 
 ---

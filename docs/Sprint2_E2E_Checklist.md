@@ -58,7 +58,7 @@ Abrir `http://localhost:3000` e testar:
 ---
 
 ## 4) Front — Rotas (S2-11)
-Abrir `http://localhost:3000/routes.html` e testar:
+Abrir `http://localhost:3000/routes` e testar:
 - Inputs: **Ano, Capítulo, Parceiro principal, Alternativos (abaixo), Cenário**.
 - Tabela + **gráfico de barras** carregam com `results`.
 - KPI **Checagem de soma** = **OK**.

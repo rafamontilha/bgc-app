@@ -1,8 +1,8 @@
 # Arquitetura do Sistema BGC Analytics
 
-**Versão:** 2.0  
-**Última atualização:** Outubro 2025  
-**Status:** Sprint 2 Completa - Clean Architecture Implementada
+**Versão:** 3.0
+**Última atualização:** Outubro 2025
+**Status:** Next.js Frontend + Clean Architecture Implementada
 
 ## 📋 Visão Geral
 
@@ -21,44 +21,102 @@ O BGC Analytics é um sistema de analytics para dados de exportação brasileira
 ## 🏗️ Arquitetura de Alto Nível
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                           k3d Cluster                          │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
-│  │   bgc-api       │  │  bgc-postgres   │  │   bgc-ingest    │ │
-│  │                 │  │                 │  │                 │ │
-│  │ ┌─────────────┐ │  │ ┌─────────────┐ │  │ ┌─────────────┐ │ │
-│  │ │ GET /metrics│ │  │ │ PostgreSQL  │ │  │ │ CSV/XLSX    │ │ │
-│  │ │    /resumo  │ │  │ │   Database  │ │  │ │   Loader    │ │ │
-│  │ │    /pais    │ │  │ │             │ │  │ │             │ │ │
-│  │ └─────────────┘ │  │ │  ┌───────┐  │ │  │ └─────────────┘ │ │
-│  │                 │  │ │  │  MVs  │  │ │  │                 │ │
-│  │ Port: 3000      │  │ │  └───────┘  │ │  │ CronJob         │ │
-│  └─────────────────┘  │ └─────────────┘ │  └─────────────────┘ │
-│           │            │        ▲        │           │         │
-│           │            │        │        │           │         │
-│           └────────────┼────────┘        │           │         │
-│                        │                 │           │         │
-│                        └─────────────────┼───────────┘         │
-└─────────────────────────────────────────────────────────────────┘
-                         │
-                    ┌────▼────┐
-                    │ kubectl │
-                    │port-fwd │
-                    │   :3000 │
-                    └─────────┘
-                         │
-                    ┌────▼────┐
-                    │   Web   │
-                    │ Browser │
-                    │Postman  │
-                    └─────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                         k3d Cluster / Docker Compose               │
+│  ┌───────────────┐  ┌───────────────┐  ┌─────────────────────┐   │
+│  │   bgc-web     │  │   bgc-api     │  │   bgc-postgres      │   │
+│  │  (Next.js)    │  │   (Go API)    │  │   (PostgreSQL)      │   │
+│  │               │  │               │  │                     │   │
+│  │ ┌───────────┐ │  │ ┌───────────┐ │  │ ┌─────────────┐   │   │
+│  │ │ React UI  │ │  │ │ /market/* │ │  │ │ PostgreSQL  │   │   │
+│  │ │ SSR/SSG   │ │  │ │ /routes/* │ │  │ │  Database   │   │   │
+│  │ │ Rewrites  │─┼──┼▶│ /healthz  │ │  │ │             │   │   │
+│  │ └───────────┘ │  │ └───────────┘ │  │ │  ┌───────┐  │   │   │
+│  │               │  │               │  │ │  │  MVs  │  │   │   │
+│  │ Port: 3000    │  │ Port: 8080    │  │ │  └───────┘  │   │   │
+│  └───────────────┘  └───────────────┘  │ └─────────────┘   │   │
+│         │                   │           │        ▲          │   │
+│         │                   │           │        │          │   │
+│         │                   └───────────┼────────┘          │   │
+│         │                               │                   │   │
+│         │                               │                   │   │
+│    ┌────▼──────┐                   ┌───▼─────────┐         │   │
+│    │  Ingress  │                   │ CronJobs    │         │   │
+│    │  Traefik  │                   │ - Backup    │         │   │
+│    └───────────┘                   │ - MV Refresh│         │   │
+│         │                           └─────────────┘         │   │
+└────────────────────────────────────────────────────────────────────┘
+              │
+         ┌────▼────────┐
+         │   Browser   │
+         │ web.bgc.local (K8s)        │
+         │ localhost:3000 (Docker)     │
+         └─────────────┘
 ```
 
 ---
 
 ## 🔧 Componentes Principais
 
-### 1. BGC API (Go) - Clean Architecture
+### 1. BGC Web (Next.js 15) - Frontend Moderno
+
+**Responsabilidade:** Interface de usuário para visualização e análise de dados de mercado
+
+**Tecnologias:**
+- **Framework:** Next.js 15.1 (App Router)
+- **Runtime:** React 19, TypeScript 5
+- **Styling:** Tailwind CSS
+- **Deploy:** Docker (production build), Node.js standalone
+
+**Páginas Principais:**
+```
+GET /                    # Dashboard TAM/SAM/SOM
+GET /routes              # Comparação de rotas comerciais
+GET /api/health          # Health check interno
+```
+
+**Arquitetura Next.js:**
+- **Server-Side Rendering (SSR):** Páginas renderizadas no servidor
+- **API Routes:** `/api/health` para health check
+- **Rewrites Internos:** Proxy transparente para Go API
+  ```typescript
+  // next.config.ts
+  rewrites() {
+    return [
+      { source: '/market/:path*', destination: 'http://bgc-api:8080/market/:path*' },
+      { source: '/routes/:path*', destination: 'http://bgc-api:8080/routes/:path*' },
+      { source: '/healthz', destination: 'http://bgc-api:8080/healthz' }
+    ];
+  }
+  ```
+
+**Features:**
+- Dashboard interativo com gráficos e tabelas
+- Export de dados para CSV
+- Validação de formulários
+- Estado compartilhado via React hooks
+- Responsive design com Tailwind
+
+**Estrutura de Diretórios:**
+```
+web-next/
+├── app/
+│   ├── page.tsx              # Dashboard TAM/SAM/SOM
+│   ├── routes/
+│   │   └── page.tsx          # Comparação de rotas
+│   ├── api/
+│   │   └── health/
+│   │       └── route.ts      # Health check endpoint
+│   └── layout.tsx            # Layout principal
+├── components/               # Componentes React reutilizáveis
+├── public/                   # Assets estáticos
+├── next.config.ts            # Configuração (rewrites)
+├── tailwind.config.ts        # Configuração Tailwind
+├── tsconfig.json             # TypeScript config
+└── Dockerfile                # Build para produção
+```
+
+### 2. BGC API (Go) - Clean Architecture
 
 **Responsabilidade:** API REST para consultas analíticas com arquitetura hexagonal
 
@@ -68,6 +126,7 @@ O BGC Analytics é um sistema de analytics para dados de exportação brasileira
 - **Database Driver:** lib/pq (PostgreSQL)
 - **Configuration:** gopkg.in/yaml.v3
 - **Deploy:** Kubernetes Deployment ou Docker Compose
+- **Port:** 8080 (internal and external)
 
 **Endpoints Atuais:**
 ```
@@ -209,41 +268,7 @@ api/
    - Código autodocumentado
    - Sem comentários desnecessários
 
-### 2. BGC Ingest (Go)
-**Responsabilidade:** ETL de dados CSV/XLSX para PostgreSQL
-
-**Tecnologias:**
-- **Runtime:** Go 1.23+
-- **CSV:** encoding/csv nativo
-- **Excel:** github.com/xuri/excelize/v2
-- **Database:** pgx/v5 (PostgreSQL driver com connection pooling)
-- **Deploy:** Kubernetes CronJob
-
-**Comandos Disponíveis:**
-```bash
-bgc-ingest health                           # Database health check
-bgc-ingest insert-sample                    # Insert sample data
-bgc-ingest load-csv /path/file.csv          # Load CSV with configurable separator
-bgc-ingest load-xlsx /path/file.xlsx        # Load Excel with sheet selection
-```
-
-**Processo de Ingest:**
-```
-┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
-│CSV/XLSX │───▶│ Parser  │───▶│Transform│───▶│  Load   │
-│ Files   │    │         │    │ Validate│    │ INSERT  │
-└─────────┘    └─────────┘    └─────────┘    └─────────┘
-                    │              │              │
-                    ▼              ▼              ▼
-               ┌─────────┐    ┌─────────┐    ┌─────────┐
-               │Row-by-  │    │Business │    │Batch    │
-               │Row Read │    │Rules    │    │Upsert   │
-               └─────────┘    └─────────┘    └─────────┘
-```
-
-**Nota:** O serviço bgc-ingest mantém estrutura monolítica (services/bgc-ingest/) pois é um utilitário de linha de comando simples que não necessita da complexidade de clean architecture.
-
-### 3. PostgreSQL (Bitnami Helm)
+### 3. PostgreSQL Database
 **Responsabilidade:** Armazenamento e processamento de dados
 
 **Configuração:**
@@ -315,7 +340,7 @@ CREATE INDEX idx_exportacao_ingest ON stg.exportacao(ingest_batch);
 ### Schema Reports (`rpt`)
 
 #### rpt.mv_resumo_pais
-**Propósito:** Agregação por país para endpoint `/metrics/pais`
+**Propósito:** Agregação por país (dados base para análises)
 
 | Coluna | Tipo | Descrição |
 |--------|------|-----------|
@@ -344,7 +369,7 @@ CREATE UNIQUE INDEX ON rpt.mv_resumo_pais (pais);
 ```
 
 #### rpt.mv_resumo_geral
-**Propósito:** Métricas gerais para endpoint `/metrics/resumo`
+**Propósito:** Métricas gerais agregadas
 
 | Coluna | Tipo | Descrição |
 |--------|------|-----------|
@@ -511,16 +536,26 @@ spec:
     spec:
       containers:
       - name: api
-        image: bgc/api:dev
+        image: bgc/bgc-api:dev
         ports:
-        - containerPort: 3000
+        - containerPort: 8080
         env:
         - name: DB_HOST
-          value: bgc-postgres
+          value: postgres
+        - name: DB_USER
+          value: bgc
+        - name: DB_PASS
+          value: bgc
+        - name: DB_NAME
+          value: bgc
         livenessProbe:
           httpGet:
-            path: /health  # TODO: implementar
-            port: 3000
+            path: /healthz
+            port: 8080
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
 ```
 
 #### Services
@@ -534,6 +569,19 @@ spec:
   selector:
     app: bgc-api
   ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP
+
+# bgc-web service
+apiVersion: v1
+kind: Service
+metadata:
+  name: bgc-web
+spec:
+  selector:
+    app: bgc-web
+  ports:
   - port: 3000
     targetPort: 3000
   type: ClusterIP
@@ -541,48 +589,66 @@ spec:
 
 #### CronJobs
 ```yaml
-# Refresh MVs diariamente
+# Backup PostgreSQL diariamente
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: refresh-mv
+  name: postgres-backup
 spec:
-  schedule: "0 1 * * *"  # 01:00 daily
+  schedule: "0 2 * * *"  # 02:00 daily
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-          - name: ingest
-            image: bgc/ingest:dev
-            command: ["refresh-mv"]
+          - name: backup
+            image: postgres:16
+            command: ["/bin/sh", "-c", "pg_dump ..."]
+
+# Refresh Materialized Views
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mview-refresh
+spec:
+  schedule: "0 3 * * *"  # 03:00 daily
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: refresh
+            image: postgres:16
+            command: ["/bin/sh", "-c", "psql -c 'REFRESH MATERIALIZED VIEW...'"]
 ```
 
-### Network Flow
+### Network Flow (Kubernetes)
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│  Developer  │───▶│k3d-loadbala │───▶│   k3d       │
-│  localhost  │    │   ncer      │    │  cluster    │
-│    :3000    │    │    :8080    │    │             │
+│  Developer  │───▶│ Traefik     │───▶│   k3d       │
+│  Browser    │    │ LoadBalancer│    │  cluster    │
+│web.bgc.local│    │   :80       │    │             │
 └─────────────┘    └─────────────┘    └─────────────┘
                                               │
-                                              ▼
-                                    ┌─────────────┐
-                                    │ bgc-api     │
-                                    │ service     │
-                                    │ :3000       │
-                                    └─────────────┘
+                          ┌───────────────────┴────────────────┐
+                          ▼                                    ▼
+                  ┌─────────────┐                    ┌─────────────┐
+                  │ bgc-web     │───rewrites────────▶│ bgc-api     │
+                  │ service     │                    │ service     │
+                  │ :3000       │                    │ :8080       │
+                  └─────────────┘                    └─────────────┘
 ```
 
 ---
 
 ## 🔒 Segurança
 
-### Desenvolvimento (Sprint 1)
-- **Database:** Credenciais via Kubernetes Secret (Helm generated)
-- **Network:** Cluster interno, acesso via port-forward
+### Desenvolvimento (Ambiente Local)
+- **Database:** Credenciais consistentes (bgc/bgc/bgc) em todos ambientes
+- **Network:** Cluster interno (K8s) ou localhost (Docker Compose)
 - **Images:** Local build, sem registry externo
 - **Data:** Dados de exemplo, não sensíveis
+- **Frontend:** Next.js com rewrites para proxy API (sem exposição direta)
 
 ### Planos Futuros
 - [ ] **RBAC:** Kubernetes role-based access control
