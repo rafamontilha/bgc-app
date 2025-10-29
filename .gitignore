@@ -32,3 +32,42 @@ backup/
 *-report.txt
 *-20*.txt
 estrutura.txt
+
+# ====================================
+# SECURITY - Secrets and Credentials
+# ====================================
+
+# Environment variables with secrets
+.env
+.env.*
+!.env.example
+*.env.local
+*.env.production
+*.env.staging
+
+# Kubernetes secrets (non-sealed)
+secrets/
+*.secret
+*secret*.yaml
+!*sealed-secret*.yaml
+
+# Docker Compose overrides with credentials
+docker-compose.override.yml
+
+# API keys and tokens
+*.key
+*.pem
+*.p12
+*.pfx
+*.cert
+*credentials*.json
+*service-account*.json
+
+# Database dumps with sensitive data
+*.dump
+*.sql.gz
+backup*.sql
+
+# Temporary secrets files
+tmp-secret*
+.secrets/
