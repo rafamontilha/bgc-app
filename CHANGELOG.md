@@ -14,10 +14,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CronJob de backup automático do PostgreSQL
 - Makefile como wrapper unificado dos scripts PowerShell
 - Documentação de observabilidade e resiliência
+- Template .env.example para configuração segura de credenciais (Docker Compose)
+- Documentação completa de segurança em docs/SECURITY-SECRETS.md
+- GitHub Actions workflows em .github/ para CI/CD
+- DIAGNOSTICO_12_FATORES.md com análise da aplicação
 
 ### Changed
 - Script k8s.ps1 atualizado para aplicar HPA e CronJobs
 - README.md expandido com informações sobre HPA e backups
+
+### Security
+- Removidas credenciais hardcoded do README.md
+- docker-compose.yml migrado para variáveis de ambiente com validação
+- .gitignore expandido com regras de proteção de secrets e credenciais
+- README.md atualizado com instruções de configuração segura
 
 ## [0.2.5.1] - 2025-01-15
 

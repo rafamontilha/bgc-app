@@ -277,21 +277,44 @@ cd ..
 
 ---
 
-## 🔒 Credenciais Padrão
+## 🔒 Configuração de Segurança
 
-### PostgreSQL
+**⚠️ IMPORTANTE:** Este projeto usa gestão segura de credenciais.
 
-- **Host**: db (Docker) / pg-postgresql (K8s)
-- **Port**: 5432
-- **User**: bgc
-- **Password**: bgc
-- **Database**: bgc
+### Primeiro Uso (Docker Compose)
 
-### PgAdmin (Docker Compose)
+```powershell
+# 1. Copiar template de configuração
+cd bgcstack
+cp .env.example .env
 
-- **URL**: http://localhost:5050
-- **Email**: admin@bgc.dev
-- **Password**: admin
+# 2. Gerar senhas fortes
+openssl rand -base64 32  # PostgreSQL
+openssl rand -base64 32  # PgAdmin
+
+# 3. Editar .env com as senhas geradas
+notepad .env
+
+# 4. Iniciar stack
+.\scripts\docker.ps1 up
+```
+
+### Kubernetes
+
+As credenciais no Kubernetes são gerenciadas via **Sealed Secrets**:
+
+```powershell
+# Sealed Secrets controller já instalado
+kubectl get pods -n kube-system | grep sealed-secrets
+
+# Credenciais criptografadas em: k8s/secrets/
+```
+
+### Documentação Completa
+
+📖 **Veja o guia completo:** [docs/SECURITY-SECRETS.md](docs/SECURITY-SECRETS.md)
+
+**🚨 NUNCA commite credenciais no Git!**
 
 ---
 
