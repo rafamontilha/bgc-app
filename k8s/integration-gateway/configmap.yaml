@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: integration-gateway-connectors
+  namespace: data
+  labels:
+    app: integration-gateway
+data:
+  # Connector configs serão montados aqui
+  # Usar kubectl create configmap --from-file para popular
+
+  # Exemplo:
+  # kubectl create configmap integration-gateway-connectors \
+  #   --from-file=config/connectors/ \
+  #   --namespace=data \
+  #   --dry-run=client -o yaml | kubectl apply -f -
+
+  viacep.yaml: |
+    id: viacep
+    name: ViaCEP - Consulta de CEP
+    version: 1.0.0
+    provider: ViaCEP
+
+    integration:
+      type: rest_api
+      protocol: https
+      auth:
+        type: none
+
+      endpoints:
+        consulta_cep:
+          method: GET
+          path: /ws/{cep}/json/
+          timeout: 10s
+
+          path_params:
+            - name: cep
+              type: string
+              required: true
+
+          response:
+            success_status: [200]
+            mapping:
+              cep: $.cep
+              logradouro: $.logradouro
+              bairro: $.bairro
+              localidade: $.localidade
+              uf: $.uf
+            transforms:
+              - field: cep
+                operation: format_cep
+
+      cache:
+        enabled: true
+        ttl: 24h
+        key_pattern: "cep:{cep}"
+
+    environments:
+      production:
+        base_url: https://viacep.com.br
+        health_check: /ws/01310100/json/
+
+    compliance:
+      tags: []
+      data_classification: public
+      retention_days: 30
+      encryption_required: false
+
+    governance:
+      owner_team: integrations-team
+      approved_by: tech-lead
+      last_audited: "2025-01-29"
+      review_frequency: annually
+
+    observability:
+      metrics_enabled: true
+      tracing_enabled: false
+      log_level: info

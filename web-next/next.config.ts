@@ -11,6 +11,20 @@ const nextConfig: NextConfig = {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://bgc-api:8080';
 
     return [
+      // API v1 routes (Épico 3 - Contrato de Dados)
+      {
+        source: '/v1/market/:path*',
+        destination: `${apiUrl}/v1/market/:path*`,
+      },
+      {
+        source: '/v1/routes/:path*',
+        destination: `${apiUrl}/v1/routes/:path*`,
+      },
+      {
+        source: '/v1/chapters/:path*',
+        destination: `${apiUrl}/v1/chapters/:path*`,
+      },
+      // Legacy routes (redirect handled by API)
       {
         source: '/market/:path*',
         destination: `${apiUrl}/market/:path*`,
@@ -23,6 +37,7 @@ const nextConfig: NextConfig = {
         source: '/chapters/:path*',
         destination: `${apiUrl}/chapters/:path*`,
       },
+      // Health and docs
       {
         source: '/healthz',
         destination: `${apiUrl}/healthz`,

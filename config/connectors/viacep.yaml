@@ -1,0 +1,98 @@
+# Connector: ViaCEP - Consulta CEP (exemplo simples, sem autenticação)
+# Demonstra a simplicidade da configuração declarativa
+
+id: viacep
+name: ViaCEP - Consulta de CEP
+version: 1.0.0
+provider: ViaCEP
+
+integration:
+  type: rest_api
+  protocol: https
+
+  # Sem autenticação (API pública)
+  auth:
+    type: none
+
+  endpoints:
+    consulta_cep:
+      method: GET
+      path: /ws/{cep}/json/
+      timeout: 10s
+
+      headers:
+        Accept: application/json
+
+      path_params:
+        - name: cep
+          type: string
+          required: true
+          pattern: "^\\d{8}$"
+          min_length: 8
+          max_length: 8
+
+      response:
+        success_status: [200]
+        error_status: [400, 404]
+
+        # Mapeamento simples
+        mapping:
+          cep: $.cep
+          logradouro: $.logradouro
+          complemento: $.complemento
+          bairro: $.bairro
+          localidade: $.localidade
+          uf: $.uf
+          ibge: $.ibge
+
+        # Transformação
+        transforms:
+          - field: cep
+            operation: format_cep  # 01310100 -> 01310-100
+
+  # Resiliência básica
+  resilience:
+    retry:
+      max_attempts: 2
+      backoff: constant
+      initial_interval: 500ms
+
+    rate_limit:
+      requests_per_minute: 120
+      burst: 20
+
+  # Cache agressivo (CEPs não mudam)
+  cache:
+    enabled: true
+    ttl: 24h
+    key_pattern: "cep:{cep}"
+
+# Ambientes (API pública única, mesma URL para todos)
+environments:
+  development:
+    base_url: https://viacep.com.br
+    health_check: /ws/01310100/json/
+
+  production:
+    base_url: https://viacep.com.br
+    health_check: /ws/01310100/json/
+
+# Compliance mínimo (dados públicos)
+compliance:
+  tags: []
+  data_classification: public
+  retention_days: 30
+  encryption_required: false
+
+# Governança
+governance:
+  owner_team: integrations-team
+  approved_by: tech-lead
+  last_audited: 2025-01-20
+  review_frequency: annually
+
+# Observabilidade
+observability:
+  metrics_enabled: true
+  tracing_enabled: false
+  log_level: warn

@@ -1,0 +1,21 @@
+# ICP-Brasil Certificates
+# NUNCA commitar certificados reais no repositório!
+
+# Certificados A1 (PFX/P12)
+*.pfx
+*.p12
+
+# Certificados A3 e chaves privadas
+*.key
+*.pem
+*.crt
+*.cer
+*.der
+
+# Arquivos de certificados temporários
+*.tmp
+*.bak
+
+# Permitir apenas exemplos/templates
+!*.example.*
+!README.md

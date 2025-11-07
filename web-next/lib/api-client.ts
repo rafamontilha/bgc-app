@@ -4,6 +4,10 @@
  * Funciona em ambos os ambientes:
  * - Localhost dev: usa localhost:8080 via Next.js rewrites
  * - Kubernetes: usa API interna via rewrites (bgc-api:8080)
+ *
+ * API Version: v1 (Épico 3 - Contrato de Dados)
+ * - Todas as rotas usam prefixo /v1
+ * - Rotas antigas (/market/size) redirecionam automaticamente
  */
 
 export const apiClient = {
@@ -76,7 +80,7 @@ export const apiClient = {
           ano: number;
           valor_usd: number;
         }>;
-      }>('/market/size', queryParams);
+      }>('/v1/market/size', queryParams);
     },
   },
 
@@ -91,6 +95,15 @@ export const apiClient = {
       alts: string;
       tariff_scenario: string;
     }) {
+      // Map 'alts' to 'alternatives' for API compatibility
+      const apiParams = {
+        year: params.year,
+        ncm_chapter: params.ncm_chapter,
+        from: params.from,
+        alternatives: params.alts, // API expects 'alternatives', not 'alts'
+        tariff_scenario: params.tariff_scenario,
+      };
+
       return apiClient.get<{
         year: number;
         ncm_chapter: string;
@@ -103,7 +116,7 @@ export const apiClient = {
           factor: number;
           estimated_usd: number;
         }>;
-      }>('/routes/compare', params);
+      }>('/v1/routes/compare', apiParams);
     },
   },
 
