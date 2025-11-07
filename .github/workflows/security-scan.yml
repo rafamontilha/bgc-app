@@ -22,9 +22,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build API image
-        run: |
-          cd api
-          docker build -t bgc-api:scan .
+        run: docker build -f api/Dockerfile -t bgc-api:scan .
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master

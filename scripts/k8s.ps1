@@ -53,7 +53,7 @@ function Test-ClusterExists {
 
 function Build-Images {
     Write-Host "🔨 Building Docker images..." -ForegroundColor Yellow
-    docker build -t bgc/bgc-api:dev api/
+    docker build -f api/Dockerfile -t bgc/bgc-api:dev .
     docker build -t bgc/bgc-web:latest web-next/
     Write-Host "✅ Images built!" -ForegroundColor Green
 }
