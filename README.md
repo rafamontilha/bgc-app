@@ -1,13 +1,16 @@
 # BGC App - Sistema de Analytics de Exportação
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/Go-1.24.9+-00ADD8?logo=go)](https://golang.org)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-316192?logo=postgresql)](https://www.postgresql.org)
 
-Sistema de analytics para dados de exportação brasileira com:
-- **API REST** em Go (Gin framework)
-- **Frontend** em Next.js 15 (React, TypeScript, Tailwind CSS)
-- **Banco de Dados** PostgreSQL 16
+Plataforma completa de analytics para dados de exportação brasileira com:
+- **API REST** em Go 1.24.9 (Clean Architecture, Gin framework)
+- **Frontend** em Next.js 15 (React 19, TypeScript, Tailwind CSS)
+- **Banco de Dados** PostgreSQL 16 com Materialized Views
+- **Integration Gateway** para APIs externas (mTLS, OAuth2, Circuit Breaker)
+- **Observability Stack** completa (Prometheus, Grafana, Jaeger, OpenTelemetry)
+- **API Contracts** com JSON Schemas e Idempotency
 
 **Open Source** sob licença AGPL v3 - Garantindo que melhorias permaneçam livres e acessíveis à comunidade.
 
@@ -35,9 +38,12 @@ Sistema de analytics para dados de exportação brasileira com:
 .\scripts\docker.ps1 up
 
 # URLs disponíveis:
-# Web:     http://localhost:3000
-# API:     http://localhost:8080
-# PgAdmin: http://localhost:5050 (admin@bgc.dev / admin)
+# Web:        http://localhost:3000
+# API:        http://localhost:8080
+# Prometheus: http://localhost:9090
+# Grafana:    http://localhost:3001 (admin / admin)
+# Jaeger UI:  http://localhost:16686
+# PgAdmin:    http://localhost:5050 (admin@bgc.dev / admin)
 ```
 
 ---
@@ -114,60 +120,75 @@ make restore-backup      # Restaurar backup do PostgreSQL
 
 ```
 bgc-app/
-├── api/                      # API Go (Clean Architecture)
-│   ├── cmd/api/             # Entry point
-│   ├── config/              # Configurações YAML
-│   ├── internal/            # Código interno
-│   │   ├── business/       # Lógica de negócio (domain)
-│   │   ├── repository/     # Persistência (postgres)
-│   │   ├── api/            # Handlers HTTP
-│   │   └── app/            # Wiring & server
+├── api/                         # API Go (Clean Architecture)
+│   ├── cmd/api/                # Entry point
+│   ├── config/                 # Configurações YAML
+│   ├── internal/               # Código interno
+│   │   ├── business/          # Lógica de negócio (domain)
+│   │   ├── repository/        # Persistência (postgres)
+│   │   ├── api/               # Handlers HTTP, middleware, validation
+│   │   ├── observability/     # Metrics (Prometheus) & Tracing (OTel)
+│   │   └── app/               # Wiring & server
 │   ├── Dockerfile
 │   └── go.mod
 │
-├── web-next/                 # Frontend Next.js 15 (React + TypeScript)
-│   ├── app/                 # App Router do Next.js
-│   ├── components/          # Componentes React
-│   ├── lib/                 # Utilitários e API client
-│   ├── hooks/               # Custom React Hooks
-│   ├── types/               # TypeScript types
+├── web-next/                    # Frontend Next.js 15 (React + TypeScript)
+│   ├── app/                    # App Router do Next.js
+│   │   ├── v1/                # API routes v1 (proxies)
+│   │   └── healthz/           # Health check route
+│   ├── components/             # Componentes React
+│   ├── lib/                    # Utilitários e API client
 │   ├── Dockerfile
 │   └── package.json
 │
-├── services/                 # Microserviços auxiliares
-│   └── bgc-ingest/          # Serviço de ingestão
+├── services/                    # Microserviços
+│   ├── bgc-ingest/             # Serviço de ingestão (CSV/XLSX)
+│   └── integration-gateway/    # Gateway de integrações externas
+│       ├── cmd/gateway/        # Entry point
+│       ├── internal/
+│       │   ├── auth/           # Multi-auth (mTLS, OAuth2, API Key)
+│       │   ├── framework/      # HTTP client resiliente
+│       │   ├── registry/       # Connector registry
+│       │   ├── transform/      # Transform engine (JSONPath)
+│       │   └── observability/  # Logging & metrics
+│       └── go.mod
 │
-├── db/                       # Database
-│   ├── init/                # Schema inicial (Docker Compose)
-│   └── migrations/          # Migrations SQL
+├── config/                      # Configurações externas
+│   └── connectors/             # YAML configs (Receita Federal, ViaCEP)
 │
-├── k8s/                      # Kubernetes Manifests (serviços)
-│   ├── api.yaml             # Deployment API com HPA
-│   ├── web.yaml             # Deployment Web Next.js com HPA
+├── schemas/                     # JSON Schemas de validação
+│   ├── connector.schema.json   # Schema para connectors
+│   └── v1/                     # API v1 request/response schemas
+│
+├── certs/                       # Certificados ICP-Brasil (gitignored)
+│
+├── db/                          # Database
+│   ├── init/                   # Schema inicial (Docker Compose)
+│   └── migrations/             # Migrations SQL (inc. idempotency)
+│
+├── k8s/                         # Kubernetes Manifests
+│   ├── api.yaml                # Deployment API com HPA
+│   ├── web.yaml                # Deployment Web com HPA
+│   ├── integration-gateway/    # Gateway deployment & configs
+│   ├── observability/          # Prometheus, Grafana, Jaeger
 │   ├── postgres-backup-cronjob.yaml
 │   └── mview-refresh-cronjob.yaml
 │
-├── deploy/                   # Kubernetes Jobs (migrations, seeds)
-│   ├── postgres.yaml
-│   └── configmap-*.yaml
+├── bgcstack/                    # Docker Compose stack
+│   ├── docker-compose.yml      # Serviços principais
+│   └── observability/          # Configs Prometheus, Grafana
 │
-├── scripts/                  # Scripts de automação
-│   ├── k8s.ps1              # Gerenciar Kubernetes
-│   ├── setup-hosts.ps1      # Configurar hosts
-│   ├── start-api.ps1        # Iniciar API local
-│   ├── start-web-next.ps1   # Iniciar Web Next.js local
-│   └── test-web-next.ps1    # Testar Web Next.js
+├── tests/                       # Testes de integração
 │
-├── docs/                     # Documentação técnica
-│   ├── QUICK-START.md
-│   ├── SETUP-NEXTJS.md
-│   └── TROUBLESHOOTING-NEXTJS.md
+├── docs/                        # Documentação técnica
+│   ├── OBSERVABILITY.md        # Guia completo de observabilidade
+│   ├── CONNECTOR-GUIDE.md      # Guia de integrações externas
+│   ├── DATA-DICTIONARY.md      # Dicionário de dados
+│   ├── IDEMPOTENCY-POLICY.md   # Política de idempotência
+│   └── EPIC-*.md               # Documentação dos épicos
 │
-├── old/                      # Arquivos legados (histórico)
-│   └── web-legacy-html/     # Frontend HTML antigo
-│
-├── Makefile                  # Wrapper multiplataforma
-└── CHANGELOG.md              # Histórico de mudanças
+├── Makefile                     # Wrapper multiplataforma
+└── CHANGELOG.md                 # Histórico de mudanças
 ```
 
 ---
@@ -197,12 +218,29 @@ A API segue os princípios de Clean Architecture com separação clara de respon
 
 ### Stack Tecnológica
 
-- **Backend**: Go 1.23 com Gin
-- **Frontend**: HTML5, JavaScript, CSS
+**Backend & Services:**
+- **API**: Go 1.24.9 com Gin (Clean Architecture)
+- **Integration Gateway**: Go 1.24.9 (Hybrid connector framework)
+- **Frontend**: Next.js 15 (React 19, TypeScript, Tailwind CSS)
+
+**Observability:**
+- **Metrics**: Prometheus + Grafana
+- **Tracing**: Jaeger + OpenTelemetry
+- **Logging**: Structured JSON logs
+
+**Data & Storage:**
 - **Database**: PostgreSQL 16
-- **Container**: Docker
+- **Caching**: In-memory (idempotency)
+- **Schemas**: JSON Schema validation
+
+**Infrastructure:**
+- **Container**: Docker + Docker Compose
 - **Orchestration**: Kubernetes (k3d)
-- **Proxy**: Nginx
+- **Ingress**: Traefik
+
+**Security & Integration:**
+- **Auth**: mTLS (ICP-Brasil), OAuth2, API Key
+- **Resilience**: Circuit Breaker, Retry, Rate Limiting
 
 ---
 
@@ -215,13 +253,30 @@ A API segue os princípios de Clean Architecture com separação clara de respon
 
 ### Principais Endpoints
 
+**Core API (v1):**
 ```
 GET /healthz                          # Health check
-GET /market/size                      # TAM/SAM/SOM metrics
-GET /routes/compare                   # Comparação de rotas
-GET /docs                             # API documentation
+GET /v1/market/size                   # TAM/SAM/SOM metrics (com JSON schema)
+GET /v1/routes/compare                # Comparação de rotas (com JSON schema)
+GET /docs                             # API documentation (Redoc)
 GET /openapi.yaml                     # OpenAPI spec
 ```
+
+**Observability:**
+```
+GET /metrics                          # Prometheus metrics (formato nativo)
+GET /metrics/json                     # Metrics em JSON (legacy)
+```
+
+**Integration Gateway:**
+```
+GET /health                           # Gateway health check
+GET /v1/connectors                    # Listar todos os connectors
+GET /v1/connectors/{id}               # Detalhes de um connector
+POST /v1/connectors/{id}/{endpoint}   # Executar endpoint com params
+```
+
+**Nota**: Endpoints legacy (`/market/size`, `/routes/compare`) redirecionam automaticamente para `/v1/*` (301).
 
 ### Exemplos
 
@@ -229,11 +284,19 @@ GET /openapi.yaml                     # OpenAPI spec
 # Health check
 curl http://localhost:8080/healthz
 
-# Market size (TAM)
-curl "http://localhost:8080/market/size?metric=TAM&year_from=2023&year_to=2024"
+# Market size (TAM) - v1 endpoint
+curl "http://localhost:8080/v1/market/size?metric=TAM&year_from=2023&year_to=2024"
 
-# Routes compare
-curl "http://localhost:8080/routes/compare?from=USA&alts=CHN,ARE&ncm_chapter=84&year=2024"
+# Routes compare - v1 endpoint
+curl "http://localhost:8080/v1/routes/compare?from=USA&alts=CHN,ARE&ncm_chapter=84&year=2024"
+
+# Prometheus metrics
+curl http://localhost:8080/metrics
+
+# Integration Gateway - Consultar CEP
+curl -X POST "http://localhost:8081/v1/connectors/viacep/consultar" \
+  -H "Content-Type: application/json" \
+  -d '{"cep": "01310-100"}'
 ```
 
 ---
@@ -422,6 +485,40 @@ netstat -ano | findstr :8080
 
 ## 📊 Observabilidade e Resiliência
 
+### Métricas e Monitoramento
+
+**Prometheus Metrics:**
+- 11 métricas customizadas implementadas:
+  - HTTP: `bgc_http_requests_total`, `bgc_http_request_duration_seconds`, `bgc_http_requests_in_flight`
+  - DB: `bgc_db_queries_total`, `bgc_db_query_duration_seconds`, `bgc_db_connections_*`
+  - Errors: `bgc_errors_total`
+  - Idempotency: `bgc_idempotency_cache_*`
+
+**Dashboards:**
+```bash
+# Prometheus
+http://localhost:9090           # Docker Compose
+http://prometheus.bgc.local     # Kubernetes
+
+# Grafana (pré-configurado com dashboards)
+http://localhost:3001           # Docker Compose
+http://grafana.bgc.local        # Kubernetes
+```
+
+### Distributed Tracing
+
+**Jaeger + OpenTelemetry:**
+- Tracing automático de todas as requisições HTTP
+- Spans de database queries com atributos detalhados
+- W3C Trace Context propagation
+- OTLP gRPC exporter
+
+```bash
+# Jaeger UI
+http://localhost:16686          # Docker Compose
+http://jaeger.bgc.local         # Kubernetes
+```
+
 ### Health Probes (Kubernetes)
 
 Todos os serviços possuem health checks configurados:
@@ -531,35 +628,59 @@ Para mais informações, consulte: https://www.gnu.org/licenses/agpl-3.0.html
 
 ## ✨ Features
 
-### Core
-- ✅ API REST com Clean Architecture (Go 1.23)
-- ✅ Dashboard interativo TAM/SAM/SOM
+### Core API
+- ✅ API REST com Clean Architecture (Go 1.24.9)
+- ✅ Dashboard interativo TAM/SAM/SOM (Next.js 15)
 - ✅ Comparação de rotas de exportação
 - ✅ PostgreSQL 16 com Materialized Views
 - ✅ Migrations automáticas com rastreabilidade
+- ✅ **API Versioning** - Endpoints /v1/* com backward compatibility
+- ✅ **JSON Schema Validation** - Validação automática de request/response
+- ✅ **Idempotency** - Cache 24h com Idempotency-Key header
+
+### Integration & External APIs (Epic 1)
+- ✅ **Integration Gateway** - Framework híbrido (90% config, 10% plugins)
+- ✅ **Multi-auth Support** - mTLS (ICP-Brasil A1/A3), OAuth2, API Key
+- ✅ **Resilience Patterns** - Circuit Breaker, Retry with backoff, Rate limiting
+- ✅ **Transform Engine** - JSONPath para mapeamento de dados
+- ✅ **Certificate Manager** - Gestão de certificados ICP-Brasil
+- ✅ **Connector Registry** - Validação automática via JSON Schema
+
+### Observability Stack (Epic 2)
+- ✅ **Prometheus Metrics** - 11 métricas customizadas
+- ✅ **Grafana Dashboards** - Pré-configurados (API Overview, DB Stats)
+- ✅ **Distributed Tracing** - Jaeger + OpenTelemetry (OTLP)
+- ✅ **Automatic Instrumentation** - Middleware para HTTP e DB
+- ✅ **Alert Rules** - 10 regras pré-configuradas (Prometheus)
+- ✅ **Structured Logging** - JSON logs com trace context
+
+### Data Governance (Epic 3)
+- ✅ **JSON Schemas** - Validação de contratos de API
+- ✅ **Idempotency System** - Prevenção de processamento duplicado
+- ✅ **Data Dictionary** - Documentação completa do modelo de dados
+- ✅ **API Versioning** - Suporte a múltiplas versões futuras
 
 ### Deployment
 - ✅ Docker Compose para desenvolvimento
 - ✅ Kubernetes (k3d) para produção simulada
 - ✅ Scripts PowerShell unificados
 - ✅ Makefile multiplataforma
-- ✅ Proxy reverso Nginx com Traefik Ingress
+- ✅ Traefik Ingress com TLS
 
-### Observabilidade & Resiliência
+### Resilience & Automation
 - ✅ Health probes (readiness/liveness)
 - ✅ Horizontal Pod Autoscaling (HPA)
 - ✅ Resource limits e requests
 - ✅ Backups automáticos diários do PostgreSQL
 - ✅ Refresh automático de materialized views
-- ✅ Métricas de API (/metrics endpoint)
+- ✅ CronJobs para automação
 
-### DevOps
-- ✅ CronJobs para backup e refresh de dados
-- ✅ Script de restore de backups
-- ✅ Ingress com Traefik
-- ✅ ConfigMaps para configuração
-- ✅ Secrets para credenciais
-- ✅ CHANGELOG.md com versionamento semântico
+### Security
+- ✅ **Go 1.24.9** - Correção de 5 vulnerabilidades críticas
+- ✅ Sealed Secrets para Kubernetes
+- ✅ ConfigMaps e Secrets management
+- ✅ Non-root containers
+- ✅ AGPL v3 license
 
 ---
 

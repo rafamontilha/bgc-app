@@ -1,18 +1,22 @@
 # Arquitetura do Sistema BGC Analytics
 
-**Versão:** 3.0
-**Última atualização:** Outubro 2025
-**Status:** Next.js Frontend + Clean Architecture Implementada
+**Versão:** 4.0
+**Última atualização:** Novembro 2025
+**Status:** Production-Ready with Full Observability & Integration Framework
 
 ## 📋 Visão Geral
 
 O BGC Analytics é um sistema de analytics para dados de exportação brasileira, construído com **Clean Architecture (Hexagonal Architecture)** e arquitetura cloud-native para execução em ambiente Kubernetes local (k3d) durante desenvolvimento e Docker Compose para desenvolvimento rápido.
 
 ### Objetivos do Sistema
-- **Performance:** Consultas analíticas rápidas via Materialized Views
+- **Performance:** Consultas analíticas rápidas via Materialized Views (<500ms p95)
 - **Manutenibilidade:** Código modular seguindo Clean Architecture
 - **Testabilidade:** Separação clara de camadas com dependency injection
-- **Simplicidade:** Stack mínima e bem documentada 
+- **Observabilidade:** Métricas, tracing e logs completos (Prometheus, Jaeger, OTel)
+- **Integração:** Framework para 30-min integration time (vs 2 dias antes)
+- **Resiliência:** Circuit breaker, retry, rate limiting automáticos
+- **Governança:** Validação de contratos, idempotency, versionamento
+- **Segurança:** Go 1.24.9, mTLS, OAuth2, vulnerabilidades corrigidas
 - **Desenvolvimento ágil:** Ambiente local reproducível
 - **Escalabilidade:** Preparado para migração cloud futura
 
@@ -21,36 +25,43 @@ O BGC Analytics é um sistema de analytics para dados de exportação brasileira
 ## 🏗️ Arquitetura de Alto Nível
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│                         k3d Cluster / Docker Compose               │
-│  ┌───────────────┐  ┌───────────────┐  ┌─────────────────────┐   │
-│  │   bgc-web     │  │   bgc-api     │  │   bgc-postgres      │   │
-│  │  (Next.js)    │  │   (Go API)    │  │   (PostgreSQL)      │   │
-│  │               │  │               │  │                     │   │
-│  │ ┌───────────┐ │  │ ┌───────────┐ │  │ ┌─────────────┐   │   │
-│  │ │ React UI  │ │  │ │ /market/* │ │  │ │ PostgreSQL  │   │   │
-│  │ │ SSR/SSG   │ │  │ │ /routes/* │ │  │ │  Database   │   │   │
-│  │ │ Rewrites  │─┼──┼▶│ /healthz  │ │  │ │             │   │   │
-│  │ └───────────┘ │  │ └───────────┘ │  │ │  ┌───────┐  │   │   │
-│  │               │  │               │  │ │  │  MVs  │  │   │   │
-│  │ Port: 3000    │  │ Port: 8080    │  │ │  └───────┘  │   │   │
-│  └───────────────┘  └───────────────┘  │ └─────────────┘   │   │
-│         │                   │           │        ▲          │   │
-│         │                   │           │        │          │   │
-│         │                   └───────────┼────────┘          │   │
-│         │                               │                   │   │
-│         │                               │                   │   │
-│    ┌────▼──────┐                   ┌───▼─────────┐         │   │
-│    │  Ingress  │                   │ CronJobs    │         │   │
-│    │  Traefik  │                   │ - Backup    │         │   │
-│    └───────────┘                   │ - MV Refresh│         │   │
-│         │                           └─────────────┘         │   │
-└────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────┐
+│                         k3d Cluster / Docker Compose                           │
+│  ┌───────────────┐  ┌───────────────┐  ┌─────────────────┐ ┌──────────────┐  │
+│  │   bgc-web     │  │   bgc-api     │  │ bgc-postgres    │ │ integration- │  │
+│  │  (Next.js)    │  │   (Go API)    │  │  (PostgreSQL)   │ │   gateway    │  │
+│  │               │  │               │  │                 │ │   (Go)       │  │
+│  │ ┌───────────┐ │  │ ┌───────────┐ │  │ ┌─────────┐   │ │ ┌──────────┐ │  │
+│  │ │ React UI  │ │  │ │/v1/market │ │  │ │PostgreSQL│  │ │ │Connectors│ │  │
+│  │ │ SSR/SSG   │ │  │ │/v1/routes │ │  │ │ Database │  │ │ │ mTLS     │ │  │
+│  │ │ Rewrites  │─┼──┼▶│ /healthz  │ │  │ │          │  │ │ │ OAuth2   │ │  │
+│  │ └───────────┘ │  │ │ /metrics  │ │  │ │  ┌────┐  │  │ │ │ API Key  │ │  │
+│  │               │  │ │OTel Traces│ │  │ │  │MVs │  │  │ │ └──────────┘ │  │
+│  │ Port: 3000    │  │ └───────────┘ │  │ │  └────┘  │  │ │ Port: 8081   │  │
+│  └───────────────┘  └───────────────┘  │ └─────────┘   │ └──────────────┘  │
+│         │                   │           │        ▲       │        │          │
+│         │                   └───────────┼────────┘       │        │          │
+│         │                               │                │        │          │
+│         │                           ┌───┴────────────────┴────────┘          │
+│    ┌────▼──────┐                   │                                         │
+│    │  Ingress  │              ┌────▼─────────────────────────────────┐       │
+│    │  Traefik  │              │     Observability Stack              │       │
+│    └───────────┘              │  ┌────────────┐  ┌────────────┐     │       │
+│         │                      │  │ Prometheus │  │  Grafana   │     │       │
+│         │                      │  │  Metrics   │  │ Dashboards │     │       │
+│    ┌────▼──────┐              │  │  :9090     │  │   :3001    │     │       │
+│    │ CronJobs  │              │  └────────────┘  └────────────┘     │       │
+│    │ - Backup  │              │  ┌──────────────────────────┐       │       │
+│    │ - Refresh │              │  │         Jaeger           │       │       │
+│    └───────────┘              │  │   Distributed Tracing    │       │       │
+│                                │  │        :16686            │       │       │
+│                                │  └──────────────────────────┘       │       │
+│                                └─────────────────────────────────────┘       │
+└────────────────────────────────────────────────────────────────────────────────┘
               │
          ┌────▼────────┐
          │   Browser   │
-         │ web.bgc.local (K8s)        │
-         │ localhost:3000 (Docker)     │
+         │ web.bgc.local (K8s) / localhost:3000 (Docker)               │
          └─────────────┘
 ```
 
@@ -121,33 +132,46 @@ web-next/
 **Responsabilidade:** API REST para consultas analíticas com arquitetura hexagonal
 
 **Tecnologias:**
-- **Runtime:** Go 1.23+
+- **Runtime:** Go 1.24.9+
 - **Framework HTTP:** Gin (gin-gonic/gin)
 - **Database Driver:** lib/pq (PostgreSQL)
 - **Configuration:** gopkg.in/yaml.v3
+- **Observability:** Prometheus client_golang, OpenTelemetry SDK
+- **Validation:** JSON Schema (gojsonschema)
 - **Deploy:** Kubernetes Deployment ou Docker Compose
 - **Port:** 8080 (internal and external)
 
 **Endpoints Atuais:**
 ```
+# Health & Documentation
 GET /health, /healthz           # Health check com status de config
-GET /metrics                    # Métricas de uso da API
 GET /docs                       # Documentação Redoc
 GET /openapi.yaml              # Especificação OpenAPI
 
-GET /market/size               # Cálculo de TAM/SAM/SOM
+# Observability
+GET /metrics                    # Prometheus metrics (formato nativo)
+GET /metrics/json              # Métricas JSON (legacy)
+
+# API v1 (com JSON Schema validation)
+GET /v1/market/size            # Cálculo de TAM/SAM/SOM
   ?metric=TAM|SAM|SOM
   &year_from=YYYY
   &year_to=YYYY
   &ncm_chapter=XX
   &scenario=base|aggressive
+  Header: Idempotency-Key (optional)
 
-GET /routes/compare            # Comparação de rotas comerciais
+GET /v1/routes/compare         # Comparação de rotas comerciais
   ?from=USA
   &alts=CHN,ARE,IND
   &ncm_chapter=XX
   &year=YYYY
   &tariff_scenario=base|tarifa10
+  Header: Idempotency-Key (optional)
+
+# Legacy endpoints (redirect 301 to /v1/*)
+GET /market/size               # → /v1/market/size
+GET /routes/compare            # → /v1/routes/compare
 ```
 
 **Arquitetura Hexagonal (Camadas):**
@@ -272,24 +296,25 @@ api/
 **Responsabilidade:** Armazenamento e processamento de dados
 
 **Configuração:**
-- **Versão:** PostgreSQL 15+ (via Bitnami)
-- **Storage:** PVC local (k3d)
-- **Backup:** Manual (desenvolvimento)
-- **Deploy:** Helm Chart
+- **Versão:** PostgreSQL 16
+- **Storage:** PVC local (k3d) ou Docker volumes
+- **Backup:** Automático via CronJob (diário 02:00)
+- **Deploy:** Direct deployment ou Helm Chart
 
 **Schema Overview:**
 ```sql
 -- Staging: dados raw
 stg.exportacao (
   ano INT,
-  mes INT, 
+  mes INT,
   pais VARCHAR,
   setor VARCHAR,
   ncm VARCHAR,
   valor_usd DECIMAL,
   peso_kg DECIMAL,
   ingest_at TIMESTAMP,
-  ingest_batch VARCHAR
+  ingest_batch VARCHAR,
+  idempotency_key VARCHAR(128)  -- NEW: Epic 3
 )
 
 -- Reports: views materializadas
@@ -304,6 +329,147 @@ rpt.mv_resumo_setor (
   setor VARCHAR,
   total_usd DECIMAL,
   anos INT[]
+)
+
+-- Idempotency tracking (Epic 3)
+public.api_idempotency (
+  id SERIAL PRIMARY KEY,
+  idempotency_key VARCHAR(128) UNIQUE,
+  request_hash TEXT,
+  response_body TEXT,
+  response_status INT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  expires_at TIMESTAMP
+)
+```
+
+### 4. Integration Gateway (Go) - Epic 1
+
+**Responsabilidade:** Framework genérico para integrações com APIs externas
+
+**Tecnologias:**
+- **Runtime:** Go 1.24.9
+- **Framework HTTP:** Gin
+- **Auth:** mTLS (ICP-Brasil), OAuth2, API Key
+- **Resilience:** gobreaker (Circuit Breaker), backoff (Retry)
+- **Transform:** JSONPath engine
+- **Deploy:** Kubernetes Deployment ou Docker Compose
+- **Port:** 8081
+
+**Capacidades:**
+- **90% config-driven** - Integrações via YAML (zero código Go)
+- **Multi-auth support** - mTLS com certificados ICP-Brasil A1/A3, OAuth2, API Key
+- **Automatic resilience** - Circuit breaker, retry with backoff, rate limiting
+- **Data transformation** - JSONPath para mapeamento request/response
+- **Schema validation** - JSON Schema automático para connector configs
+- **Certificate management** - SimpleCertificateManager para ICP-Brasil
+
+**Endpoints:**
+```
+GET /health                          # Gateway health check
+GET /v1/connectors                   # Listar conectores disponíveis
+GET /v1/connectors/{id}              # Detalhes de connector
+POST /v1/connectors/{id}/{endpoint}  # Executar endpoint com params
+```
+
+**Connector Examples:**
+- `receita-federal-cnpj.yaml` - Consulta CNPJ com mTLS
+- `viacep.yaml` - Consulta CEP (API pública)
+
+**Estrutura de Diretórios:**
+```
+services/integration-gateway/
+├── cmd/gateway/main.go         # Entry point
+├── internal/
+│   ├── auth/                   # Auth engine (mTLS, OAuth2, API Key)
+│   │   ├── engine.go          # Auth factory
+│   │   ├── mtls.go            # mTLS handler
+│   │   ├── oauth2.go          # OAuth2 handler
+│   │   └── certmanager.go     # Certificate manager
+│   ├── framework/              # Core framework
+│   │   ├── httpclient.go      # Resilient HTTP client
+│   │   └── executor.go        # Request executor
+│   ├── registry/               # Connector registry
+│   │   ├── registry.go        # Registry manager
+│   │   └── loader.go          # YAML loader & validator
+│   ├── transform/              # Transform engine
+│   │   └── engine.go          # JSONPath transformer
+│   └── observability/          # Logging & metrics
+└── go.mod
+```
+
+### 5. Observability Stack - Epic 2
+
+**Responsabilidade:** Métricas, tracing e monitoramento de produção
+
+#### 5.1 Prometheus (Metrics)
+
+**Métricas Implementadas (11 customizadas):**
+```go
+// HTTP Metrics
+bgc_http_requests_total          // Counter: requests por endpoint/method/status
+bgc_http_request_duration_seconds // Histogram: latência (P50/P95/P99)
+bgc_http_requests_in_flight       // Gauge: requests em processamento
+
+// Database Metrics
+bgc_db_queries_total              // Counter: queries por operação/tabela
+bgc_db_query_duration_seconds     // Histogram: latência de queries
+bgc_db_connections_open           // Gauge: conexões abertas
+bgc_db_connections_in_use         // Gauge: conexões em uso
+bgc_db_connections_idle           // Gauge: conexões ociosas
+
+// Application Metrics
+bgc_errors_total                  // Counter: erros por tipo/severidade
+bgc_idempotency_cache_hits_total  // Counter: cache hits
+bgc_idempotency_cache_misses_total // Counter: cache misses
+bgc_idempotency_cache_size        // Gauge: tamanho do cache
+```
+
+**Deployment:**
+- Docker Compose: `prom/prometheus:v2.50.0` na porta 9090
+- Kubernetes: Deployment com ServiceAccount + RBAC
+
+#### 5.2 Grafana (Dashboards)
+
+**Dashboards Pré-configurados:**
+- **BGC API Overview** - 8 painéis:
+  - Request Rate (req/s)
+  - Error Rate (%)
+  - Request Duration (P50/P95/P99)
+  - Requests In Flight
+  - DB Query Rate
+  - DB Query Duration (P95)
+  - DB Connections (Open/In Use/Idle)
+  - Idempotency Cache (Hits/Misses/Size)
+
+**Deployment:**
+- Docker Compose: `grafana/grafana:10.3.0` na porta 3001
+- Kubernetes: Deployment com datasources provisionados
+
+#### 5.3 Jaeger (Distributed Tracing)
+
+**Capacidades:**
+- OTLP gRPC receiver (porta 4317)
+- OTLP HTTP receiver (porta 4318)
+- W3C Trace Context propagation
+- Automatic span creation para HTTP handlers
+- Database query tracing com atributos
+
+**Deployment:**
+- Docker Compose: `jaegertracing/all-in-one:1.54` na porta 16686
+- Kubernetes: All-in-one deployment com memory storage (10k traces)
+
+**Instrumentação Automática:**
+```go
+// Middleware OpenTelemetry
+otelgin.Middleware("bgc-api")
+
+// Span de database query
+ctx, span := tracing.StartSpan(ctx, "db.GetMarketDataByYearRange")
+defer span.End()
+span.SetAttributes(
+  attribute.Int("year.from", yearFrom),
+  attribute.Int("year.to", yearTo),
 )
 ```
 
