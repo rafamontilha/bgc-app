@@ -1,0 +1,433 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bgc.local/schemas/connector.schema.json",
+  "title": "BGC Connector Configuration Schema",
+  "description": "Schema for declarative connector configuration (YAML)",
+  "type": "object",
+  "required": ["id", "name", "version", "integration"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]+$",
+      "description": "Unique connector identifier (lowercase, hyphens only)"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable connector name"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version (e.g., 1.0.0)"
+    },
+    "provider": {
+      "type": "string",
+      "description": "Provider name (e.g., 'Receita Federal')"
+    },
+    "integration": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["rest_api", "soap", "graphql", "grpc"],
+          "description": "Integration protocol type"
+        },
+        "protocol": {
+          "type": "string",
+          "enum": ["http", "https"],
+          "default": "https"
+        },
+        "auth": {
+          "$ref": "#/definitions/auth"
+        },
+        "endpoints": {
+          "type": "object",
+          "description": "Map of endpoint definitions",
+          "additionalProperties": {
+            "$ref": "#/definitions/endpoint"
+          }
+        },
+        "resilience": {
+          "$ref": "#/definitions/resilience"
+        },
+        "cache": {
+          "$ref": "#/definitions/cache"
+        }
+      }
+    },
+    "environments": {
+      "type": "object",
+      "description": "Environment-specific configurations",
+      "properties": {
+        "development": {
+          "$ref": "#/definitions/environment"
+        },
+        "sandbox": {
+          "$ref": "#/definitions/environment"
+        },
+        "production": {
+          "$ref": "#/definitions/environment"
+        }
+      }
+    },
+    "compliance": {
+      "type": "object",
+      "properties": {
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["LGPD", "SOC2", "ICP-Brasil", "PCI-DSS", "HIPAA"]
+          }
+        },
+        "data_classification": {
+          "type": "string",
+          "enum": ["public", "internal", "confidential", "restricted"]
+        },
+        "retention_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "encryption_required": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "governance": {
+      "type": "object",
+      "required": ["owner_team"],
+      "properties": {
+        "owner_team": {
+          "type": "string",
+          "description": "Team responsible for this connector"
+        },
+        "approved_by": {
+          "type": "string",
+          "description": "Approver name or team"
+        },
+        "last_audited": {
+          "type": "string",
+          "format": "date",
+          "description": "Last audit date (YYYY-MM-DD)"
+        },
+        "review_frequency": {
+          "type": "string",
+          "enum": ["monthly", "quarterly", "semi-annually", "annually"]
+        }
+      }
+    },
+    "observability": {
+      "type": "object",
+      "properties": {
+        "metrics_enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "tracing_enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "log_level": {
+          "type": "string",
+          "enum": ["debug", "info", "warn", "error"],
+          "default": "info"
+        },
+        "alerts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/alert"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "auth": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["mtls", "oauth2", "api_key", "basic", "jwt", "none"]
+        },
+        "certificate_ref": {
+          "type": "string",
+          "description": "Certificate ID in Certificate Manager (for mTLS)"
+        },
+        "oauth2": {
+          "type": "object",
+          "properties": {
+            "token_url": {"type": "string", "format": "uri"},
+            "client_id": {"type": "string"},
+            "client_secret_ref": {"type": "string"},
+            "scopes": {
+              "type": "array",
+              "items": {"type": "string"}
+            }
+          }
+        },
+        "api_key": {
+          "type": "object",
+          "properties": {
+            "header_name": {"type": "string", "default": "X-API-Key"},
+            "key_ref": {"type": "string"}
+          }
+        }
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "required": ["method", "path"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "URL path (supports {param} placeholders)"
+        },
+        "timeout": {
+          "type": "string",
+          "pattern": "^\\d+[smh]$",
+          "default": "30s",
+          "description": "Request timeout (e.g., 30s, 5m)"
+        },
+        "headers": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        },
+        "query_params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/parameter"
+          }
+        },
+        "path_params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/parameter"
+          }
+        },
+        "body": {
+          "type": "object",
+          "properties": {
+            "content_type": {
+              "type": "string",
+              "default": "application/json"
+            },
+            "template": {
+              "type": "string",
+              "description": "Request body template (supports {{param}} placeholders)"
+            }
+          }
+        },
+        "response": {
+          "type": "object",
+          "properties": {
+            "success_status": {
+              "type": "array",
+              "items": {"type": "integer"},
+              "default": [200]
+            },
+            "error_status": {
+              "type": "array",
+              "items": {"type": "integer"}
+            },
+            "mapping": {
+              "type": "object",
+              "description": "JSONPath mappings (field: $.json.path)",
+              "additionalProperties": {"type": "string"}
+            },
+            "transforms": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/transform"
+              }
+            }
+          }
+        },
+        "plugins": {
+          "type": "object",
+          "properties": {
+            "request_transform": {"type": "string"},
+            "response_transform": {"type": "string"},
+            "custom_auth": {"type": "string"}
+          }
+        }
+      }
+    },
+    "parameter": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {"type": "string"},
+        "type": {
+          "type": "string",
+          "enum": ["string", "integer", "number", "boolean"]
+        },
+        "required": {
+          "type": "boolean",
+          "default": false
+        },
+        "format": {
+          "type": "string",
+          "description": "Format validator (e.g., digits_only, email)"
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Regex pattern for validation"
+        },
+        "min_length": {"type": "integer"},
+        "max_length": {"type": "integer"},
+        "default": {}
+      }
+    },
+    "transform": {
+      "type": "object",
+      "required": ["field", "operation"],
+      "properties": {
+        "field": {
+          "type": "string",
+          "description": "Field name to transform"
+        },
+        "operation": {
+          "type": "string",
+          "description": "Transform operation (built-in or plugin)"
+        },
+        "values": {
+          "type": "object",
+          "description": "Value mappings for map_values operation"
+        },
+        "params": {
+          "type": "object",
+          "description": "Additional parameters for custom operations"
+        }
+      }
+    },
+    "resilience": {
+      "type": "object",
+      "properties": {
+        "retry": {
+          "type": "object",
+          "properties": {
+            "max_attempts": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10,
+              "default": 3
+            },
+            "backoff": {
+              "type": "string",
+              "enum": ["constant", "linear", "exponential"],
+              "default": "exponential"
+            },
+            "initial_interval": {
+              "type": "string",
+              "pattern": "^\\d+[smh]$",
+              "default": "1s"
+            },
+            "max_interval": {
+              "type": "string",
+              "pattern": "^\\d+[smh]$",
+              "default": "30s"
+            }
+          }
+        },
+        "circuit_breaker": {
+          "type": "object",
+          "properties": {
+            "failure_threshold": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 5
+            },
+            "success_threshold": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 2
+            },
+            "timeout": {
+              "type": "string",
+              "pattern": "^\\d+[smh]$",
+              "default": "60s"
+            }
+          }
+        },
+        "rate_limit": {
+          "type": "object",
+          "properties": {
+            "requests_per_minute": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "burst": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "cache": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "ttl": {
+          "type": "string",
+          "pattern": "^\\d+[smhd]$",
+          "description": "Time to live (e.g., 5m, 1h, 1d)"
+        },
+        "key_pattern": {
+          "type": "string",
+          "description": "Cache key pattern (supports {param} placeholders)"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "properties": {
+        "base_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "health_check": {
+          "type": "string",
+          "description": "Health check endpoint path"
+        }
+      }
+    },
+    "alert": {
+      "type": "object",
+      "required": ["type", "threshold", "channels"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["certificate_expiry", "error_rate", "latency", "availability"]
+        },
+        "threshold": {
+          "type": "string",
+          "description": "Alert threshold (e.g., 30d, 5%, 1s)"
+        },
+        "window": {
+          "type": "string",
+          "pattern": "^\\d+[smh]$",
+          "description": "Time window for evaluation"
+        },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["slack", "email", "pagerduty", "webhook"]
+          }
+        }
+      }
+    }
+  }
+}

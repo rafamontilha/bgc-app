@@ -3,7 +3,8 @@
     "allow": [
       "Bash(awk:*)",
       "Bash(kubectl logs:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(kubectl get:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bgc.dev/schemas/v1/error-response.json",
+  "title": "Error Response",
+  "description": "Standard error response schema for API errors",
+  "type": "object",
+  "properties": {
+    "error": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Machine-readable error code (e.g., 'INVALID_PARAMETER', 'NOT_FOUND')"
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable error message"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string",
+                "description": "Field name that caused the error"
+              },
+              "issue": {
+                "type": "string",
+                "description": "Description of the issue with the field"
+              }
+            }
+          },
+          "description": "Detailed validation errors"
+        },
+        "request_id": {
+          "type": "string",
+          "description": "Request ID for tracing (X-Request-Id header)"
+        }
+      },
+      "required": ["code", "message"]
+    }
+  },
+  "required": ["error"],
+  "examples": [
+    {
+      "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "Invalid request parameters",
+        "details": [
+          {
+            "field": "year_from",
+            "issue": "must be less than or equal to year_to"
+          },
+          {
+            "field": "metric",
+            "issue": "must be one of: TAM, SAM, SOM"
+          }
+        ],
+        "request_id": "abc123xyz"
+      }
+    }
+  ]
+}

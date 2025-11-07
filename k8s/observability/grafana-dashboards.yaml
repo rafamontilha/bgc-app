@@ -1,0 +1,206 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: observability
+data:
+  bgc-api-overview.json: |
+    {
+      "dashboard": {
+        "title": "BGC API Overview",
+        "tags": ["bgc", "api", "overview"],
+        "timezone": "browser",
+        "schemaVersion": 36,
+        "version": 1,
+        "refresh": "10s",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Request Rate (req/s)",
+            "type": "graph",
+            "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(bgc_http_requests_total[5m])) by (path)",
+                "legendFormat": "{{path}}",
+                "refId": "A"
+              }
+            ],
+            "yaxes": [
+              {"format": "reqps", "label": "Requests/sec"},
+              {"format": "short"}
+            ]
+          },
+          {
+            "id": 2,
+            "title": "Error Rate (%)",
+            "type": "graph",
+            "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(bgc_http_requests_total{status=\"5xx\"}[5m])) / sum(rate(bgc_http_requests_total[5m])) * 100",
+                "legendFormat": "5xx Error Rate",
+                "refId": "A"
+              },
+              {
+                "expr": "sum(rate(bgc_http_requests_total{status=\"4xx\"}[5m])) / sum(rate(bgc_http_requests_total[5m])) * 100",
+                "legendFormat": "4xx Error Rate",
+                "refId": "B"
+              }
+            ],
+            "yaxes": [
+              {"format": "percent", "label": "Error Rate"},
+              {"format": "short"}
+            ],
+            "alert": {
+              "conditions": [
+                {
+                  "evaluator": {"params": [5], "type": "gt"},
+                  "operator": {"type": "and"},
+                  "query": {"params": ["A", "5m", "now"]},
+                  "reducer": {"params": [], "type": "avg"},
+                  "type": "query"
+                }
+              ],
+              "executionErrorState": "alerting",
+              "frequency": "1m",
+              "handler": 1,
+              "name": "High Error Rate",
+              "noDataState": "no_data"
+            }
+          },
+          {
+            "id": 3,
+            "title": "Request Duration (P50, P95, P99)",
+            "type": "graph",
+            "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.50, sum(rate(bgc_http_request_duration_seconds_bucket[5m])) by (le))",
+                "legendFormat": "P50",
+                "refId": "A"
+              },
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(bgc_http_request_duration_seconds_bucket[5m])) by (le))",
+                "legendFormat": "P95",
+                "refId": "B"
+              },
+              {
+                "expr": "histogram_quantile(0.99, sum(rate(bgc_http_request_duration_seconds_bucket[5m])) by (le))",
+                "legendFormat": "P99",
+                "refId": "C"
+              }
+            ],
+            "yaxes": [
+              {"format": "s", "label": "Duration"},
+              {"format": "short"}
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Requests In Flight",
+            "type": "graph",
+            "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "bgc_http_requests_in_flight",
+                "legendFormat": "In Flight",
+                "refId": "A"
+              }
+            ],
+            "yaxes": [
+              {"format": "short", "label": "Requests"},
+              {"format": "short"}
+            ]
+          },
+          {
+            "id": 5,
+            "title": "Database Query Rate (queries/s)",
+            "type": "graph",
+            "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(bgc_db_queries_total[5m])) by (operation, table)",
+                "legendFormat": "{{operation}} - {{table}}",
+                "refId": "A"
+              }
+            ],
+            "yaxes": [
+              {"format": "ops", "label": "Queries/sec"},
+              {"format": "short"}
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Database Query Duration (P95)",
+            "type": "graph",
+            "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(bgc_db_query_duration_seconds_bucket[5m])) by (le, table))",
+                "legendFormat": "{{table}}",
+                "refId": "A"
+              }
+            ],
+            "yaxes": [
+              {"format": "s", "label": "Duration"},
+              {"format": "short"}
+            ]
+          },
+          {
+            "id": 7,
+            "title": "Database Connections",
+            "type": "graph",
+            "gridPos": {"x": 0, "y": 24, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "bgc_db_connections_open",
+                "legendFormat": "Open",
+                "refId": "A"
+              },
+              {
+                "expr": "bgc_db_connections_in_use",
+                "legendFormat": "In Use",
+                "refId": "B"
+              },
+              {
+                "expr": "bgc_db_connections_idle",
+                "legendFormat": "Idle",
+                "refId": "C"
+              }
+            ],
+            "yaxes": [
+              {"format": "short", "label": "Connections"},
+              {"format": "short"}
+            ]
+          },
+          {
+            "id": 8,
+            "title": "Idempotency Cache",
+            "type": "graph",
+            "gridPos": {"x": 12, "y": 24, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "rate(bgc_idempotency_cache_hits_total[5m])",
+                "legendFormat": "Hits/s",
+                "refId": "A"
+              },
+              {
+                "expr": "rate(bgc_idempotency_cache_misses_total[5m])",
+                "legendFormat": "Misses/s",
+                "refId": "B"
+              },
+              {
+                "expr": "bgc_idempotency_cache_size",
+                "legendFormat": "Cache Size",
+                "refId": "C"
+              }
+            ],
+            "yaxes": [
+              {"format": "ops", "label": "Rate / Size"},
+              {"format": "short"}
+            ]
+          }
+        ]
+      }
+    }

@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bgc.dev/schemas/v1/route-comparison-request.json",
+  "title": "Route Comparison Request",
+  "description": "Schema for export route comparison request parameters",
+  "type": "object",
+  "properties": {
+    "from": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$",
+      "description": "Origin country code (ISO 3166-1 alpha-3)"
+    },
+    "alternatives": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}(,[A-Z]{3})*$",
+      "description": "Comma-separated list of alternative country codes (e.g., 'CHN,ARE,DEU')"
+    },
+    "ncm_chapter": {
+      "type": "string",
+      "pattern": "^[0-9]{2}$",
+      "description": "NCM chapter (2 digits) for product category"
+    },
+    "year": {
+      "type": "integer",
+      "minimum": 2000,
+      "maximum": 2100,
+      "description": "Year for route comparison"
+    },
+    "tariff_scenario": {
+      "type": "string",
+      "enum": ["base", "tarifa10", "tarifa20"],
+      "default": "base",
+      "description": "Tariff scenario to apply for comparison"
+    }
+  },
+  "required": ["from", "alternatives", "ncm_chapter", "year"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "from": "USA",
+      "alternatives": "CHN,ARE",
+      "ncm_chapter": "84",
+      "year": 2023
+    },
+    {
+      "from": "BRA",
+      "alternatives": "USA,CHN,DEU",
+      "ncm_chapter": "85",
+      "year": 2023,
+      "tariff_scenario": "tarifa10"
+    }
+  ]
+}

@@ -1,0 +1,181 @@
+# Connector: Receita Federal - Consulta CNPJ
+# Este é um exemplo de connector 100% declarativo (zero código Go!)
+
+id: receita-federal-cnpj
+name: Receita Federal - Consulta CNPJ
+version: 1.0.0
+provider: Receita Federal do Brasil
+
+# Integração
+integration:
+  type: rest_api
+  protocol: https
+
+  # Autenticação mTLS com certificado ICP-Brasil
+  auth:
+    type: mtls
+    certificate_ref: icp-brasil-receita-prod  # Referência no Certificate Manager
+
+  # Definição de endpoints (declarativo)
+  endpoints:
+    # Endpoint: Consulta CNPJ
+    consulta_cnpj:
+      method: GET
+      path: /api/cnpj/{cnpj}
+      timeout: 30s
+
+      # Headers
+      headers:
+        Content-Type: application/json
+        Accept: application/json
+        User-Agent: BGC/1.0
+
+      # Parâmetros de path
+      path_params:
+        - name: cnpj
+          type: string
+          required: true
+          format: digits_only
+          min_length: 14
+          max_length: 14
+
+      # Parâmetros de query (opcionais)
+      query_params:
+        - name: incluir_socios
+          type: boolean
+          required: false
+          default: false
+
+      # Resposta
+      response:
+        success_status: [200]
+        error_status: [400, 404, 429, 500, 503]
+
+        # Mapeamento JSONPath (automático pelo framework!)
+        mapping:
+          cnpj: $.data.cnpj
+          razao_social: $.data.nome_empresarial
+          nome_fantasia: $.data.nome_fantasia
+          situacao_cadastral: $.data.situacao_cadastral
+          data_situacao: $.data.data_situacao_cadastral
+          cnae_principal: $.data.cnae_fiscal
+          logradouro: $.data.logradouro
+          numero: $.data.numero
+          municipio: $.data.municipio
+          uf: $.data.uf
+          cep: $.data.cep
+
+        # Transformações (usando built-in plugins)
+        transforms:
+          - field: cnpj
+            operation: format_cnpj  # Plugin built-in: 12345678000195 -> 12.345.678/0001-95
+
+          - field: situacao_cadastral
+            operation: map_values
+            values:
+              "01": "ativa"
+              "02": "suspensa"
+              "03": "inapta"
+              "04": "baixada"
+
+          - field: cep
+            operation: format_cep  # Plugin built-in: 01310100 -> 01310-100
+
+    # Endpoint: Consulta QSA (Quadro Societário)
+    consulta_qsa:
+      method: GET
+      path: /api/cnpj/{cnpj}/socios
+      timeout: 45s
+
+      headers:
+        Content-Type: application/json
+        Accept: application/json
+
+      path_params:
+        - name: cnpj
+          type: string
+          required: true
+          format: digits_only
+          length: 14
+
+      response:
+        success_status: [200]
+        error_status: [400, 404, 500]
+
+        mapping:
+          cnpj: $.data.cnpj
+          socios: $.data.qsa[*]  # Array de sócios
+
+  # Resiliência (framework aplica automaticamente!)
+  resilience:
+    retry:
+      max_attempts: 3
+      backoff: exponential
+      initial_interval: 1s
+      max_interval: 10s
+
+    circuit_breaker:
+      failure_threshold: 5
+      success_threshold: 2
+      timeout: 60s
+
+    rate_limit:
+      requests_per_minute: 60
+      burst: 10
+
+  # Cache (framework gerencia automaticamente!)
+  cache:
+    enabled: true
+    ttl: 1h
+    key_pattern: "cnpj:{cnpj}"
+
+# Ambientes
+environments:
+  development:
+    base_url: http://localhost:9090  # Mock server
+    health_check: /health
+
+  sandbox:
+    base_url: https://hom.receita.fazenda.gov.br
+    health_check: /status
+
+  production:
+    base_url: https://servicos.receita.fazenda.gov.br
+    health_check: /status
+
+# Compliance
+compliance:
+  tags:
+    - LGPD
+    - ICP-Brasil
+  data_classification: confidential
+  retention_days: 90
+  encryption_required: true
+
+# Governança
+governance:
+  owner_team: integrations-team
+  approved_by: security-team
+  last_audited: 2025-01-15
+  review_frequency: quarterly
+
+# Observabilidade
+observability:
+  metrics_enabled: true
+  tracing_enabled: true
+  log_level: info
+
+  alerts:
+    - type: certificate_expiry
+      threshold: 30d
+      channels: [slack, email]
+
+    - type: error_rate
+      threshold: 5%
+      window: 5m
+      channels: [pagerduty]
+
+    - type: latency
+      threshold: 2s
+      window: 1m
+      channels: [slack]

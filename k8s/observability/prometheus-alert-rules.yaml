@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alert-rules
+  namespace: observability
+data:
+  alert-rules.yml: |
+    groups:
+    - name: bgc_api_alerts
+      interval: 30s
+      rules:
+      # High error rate (> 5%)
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(bgc_http_requests_total{status="5xx"}[5m]))
+            /
+            sum(rate(bgc_http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High error rate detected ({{ $value | humanizePercentage }})"
+          description: "API error rate is above 5% for the last 5 minutes. Current value: {{ $value | humanizePercentage }}"
+
+      # High latency (p95 > 2s)
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(bgc_http_request_duration_seconds_bucket[5m])) by (le, path)
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API latency detected on {{ $labels.path }}"
+          description: "P95 latency is above 2 seconds for {{ $labels.path }}. Current value: {{ $value }}s"
+
+      # API down
+      - alert: APIDown
+        expr: up{job="bgc-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "BGC API is down"
+          description: "BGC API has been down for more than 1 minute"
+
+      # High database query latency (p95 > 500ms)
+      - alert: HighDatabaseLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(bgc_db_query_duration_seconds_bucket[5m])) by (le, operation, table)
+          ) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "High database query latency on {{ $labels.table }}"
+          description: "P95 database query latency is above 500ms for {{ $labels.operation }} on {{ $labels.table }}. Current value: {{ $value }}s"
+
+      # Database connection pool exhaustion (> 90% in use)
+      - alert: DatabaseConnectionPoolExhaustion
+        expr: |
+          (bgc_db_connections_in_use / bgc_db_connections_open) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "Database connection pool near exhaustion"
+          description: "More than 90% of database connections are in use. Current: {{ $value | humanizePercentage }}"
+
+      # High number of DB connections
+      - alert: HighDatabaseConnections
+        expr: bgc_db_connections_open > 50
+        for: 10m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "High number of database connections"
+          description: "Database has {{ $value }} open connections, which is above the threshold of 50"
+
+      # High HTTP request rate (potential DDoS or traffic spike)
+      - alert: HighRequestRate
+        expr: |
+          sum(rate(bgc_http_requests_total[1m])) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "Unusually high request rate detected"
+          description: "API is receiving {{ $value }} requests per second, which may indicate a traffic spike or attack"
+
+      # Idempotency cache size growing too large
+      - alert: IdempotencyCacheSizeHigh
+        expr: bgc_idempotency_cache_size > 10000
+        for: 15m
+        labels:
+          severity: info
+          component: api
+        annotations:
+          summary: "Idempotency cache size is growing large"
+          description: "Idempotency cache has {{ $value }} entries. May need to review TTL settings"
+
+      # Integration Gateway down
+      - alert: IntegrationGatewayDown
+        expr: up{job="integration-gateway"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          component: integration-gateway
+        annotations:
+          summary: "Integration Gateway is down"
+          description: "Integration Gateway has been down for more than 2 minutes"
+
+      # Connector circuit breaker open
+      - alert: ConnectorCircuitBreakerOpen
+        expr: bgc_connector_circuit_breaker_state{state="open"} == 1
+        for: 5m
+        labels:
+          severity: warning
+          component: integration-gateway
+        annotations:
+          summary: "Circuit breaker open for connector {{ $labels.connector_id }}"
+          description: "Circuit breaker has been open for connector {{ $labels.connector_id }} for more than 5 minutes"

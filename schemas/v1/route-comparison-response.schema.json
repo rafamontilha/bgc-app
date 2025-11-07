@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bgc.dev/schemas/v1/route-comparison-response.json",
+  "title": "Route Comparison Response",
+  "description": "Schema for export route comparison response",
+  "type": "object",
+  "properties": {
+    "data": {
+      "type": "object",
+      "properties": {
+        "origin": {
+          "$ref": "#/definitions/RouteInfo"
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/RouteInfo"
+          }
+        },
+        "comparison": {
+          "$ref": "#/definitions/ComparisonSummary"
+        }
+      },
+      "required": ["origin", "alternatives"]
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "ncm_chapter": {
+          "type": "string"
+        },
+        "year": {
+          "type": "integer"
+        },
+        "tariff_scenario": {
+          "type": "string"
+        },
+        "alternatives_count": {
+          "type": "integer"
+        }
+      },
+      "required": ["from", "ncm_chapter", "year"]
+    }
+  },
+  "required": ["data", "metadata"],
+  "definitions": {
+    "RouteInfo": {
+      "type": "object",
+      "properties": {
+        "country_code": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "country_name": {
+          "type": "string"
+        },
+        "export_value_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "import_value_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "tariff_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Tariff rate as percentage"
+        },
+        "weighted_score": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Weighted score for route attractiveness"
+        }
+      },
+      "required": ["country_code", "country_name"]
+    },
+    "ComparisonSummary": {
+      "type": "object",
+      "properties": {
+        "best_alternative": {
+          "type": "string",
+          "description": "Country code of the best alternative route"
+        },
+        "cost_savings_usd": {
+          "type": "number",
+          "description": "Estimated cost savings compared to origin"
+        },
+        "ranking": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rank": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "country_code": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

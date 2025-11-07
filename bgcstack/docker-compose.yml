@@ -34,7 +34,9 @@ services:
     restart: unless-stopped
     
   api:
-    build: ../api
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
     container_name: bgc_api
     networks:
       default:
@@ -47,6 +49,8 @@ services:
       DB_PASS: ${DB_PASS:?DB_PASS not set - copy .env.example to .env}
       DB_NAME: ${DB_NAME:-bgc}
       PORT: ${PORT:-8080}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      OTEL_EXPORTER_OTLP_ENDPOINT: jaeger:4317
       # overrides opcionais:
       # SCOPE_CHAPTERS: "02,08,84,85"
       # SOM_BASE: "0.015"
@@ -70,6 +74,95 @@ services:
       - api
     restart: unless-stopped
 
+  integration-gateway:
+    build:
+      context: ../services/integration-gateway
+      dockerfile: Dockerfile
+    container_name: bgc_integration_gateway
+    environment:
+      CONFIG_DIR: /app/config/connectors
+      CERTS_DIR: /app/certs
+      ENVIRONMENT: ${GATEWAY_ENVIRONMENT:-development}
+      LOG_LEVEL: ${GATEWAY_LOG_LEVEL:-info}
+      PORT: "8081"
+      OTEL_EXPORTER_OTLP_ENDPOINT: jaeger:4317
+    ports:
+      - "8081:8081"
+    volumes:
+      # Connector configs (read-only)
+      - ../config/connectors:/app/config/connectors:ro
+      # Certificates (read-only)
+      - ../certs:/app/certs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8081/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      - db
+      - jaeger
+
+  # Observability Stack
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    container_name: bgc_prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+    depends_on:
+      - api
+      - integration-gateway
+
+  grafana:
+    image: grafana/grafana:10.3.0
+    container_name: bgc_grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_INSTALL_PLUGINS=redis-datasource,grafana-piechart-panel
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./observability/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./observability/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./observability/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+      - jaeger
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.54
+    container_name: bgc_jaeger
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      - SPAN_STORAGE_TYPE=memory
+      - MEMORY_MAX_TRACES=10000
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "4317:4317"    # OTLP gRPC receiver
+      - "4318:4318"    # OTLP HTTP receiver
+      - "14268:14268"  # Jaeger collector HTTP
+      - "14250:14250"  # Jaeger collector gRPC
+    restart: unless-stopped
+
 volumes:
   db_data: {}
   pgadmin_data: {}
+  prometheus_data: {}
+  grafana_data: {}
