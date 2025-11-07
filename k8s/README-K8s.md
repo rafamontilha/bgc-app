@@ -25,8 +25,7 @@ Senha do app bgc: Secret pg-postgresql chave password.
 ## 3 Build & Import Images
 
 # API
-cd .\api
-docker build -t bgc-api:v0.2.5 .
+docker build -f api/Dockerfile -t bgc-api:v0.2.5 .
 k3d image import -c bgc bgc-api:v0.2.5
 
 # Web
