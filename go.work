@@ -1,6 +1,7 @@
-go 1.23
+go 1.24.9
 
 use (
-    ./services/bgc-ingest
-    ./api
+	./api
+	./services/bgc-ingest
+	./services/integration-gateway
 )
