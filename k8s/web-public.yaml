@@ -1,0 +1,250 @@
+# ==================================================
+# BGC Web Public - Kubernetes Manifests
+# Homepage pública: www.brasilglobal.com
+# ==================================================
+
+---
+# ConfigMap para variáveis de ambiente
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-public-config
+  namespace: data
+  labels:
+    app: bgc-web-public
+    tier: frontend
+data:
+  VITE_API_URL: "http://bgc-api:8080"
+  VITE_OTEL_ENDPOINT: "http://jaeger:4318/v1/traces"
+
+---
+# Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bgc-web-public
+  namespace: data
+  labels:
+    app: bgc-web-public
+    tier: frontend
+    version: v1.0.0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: bgc-web-public
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: bgc-web-public
+        tier: frontend
+        version: v1.0.0
+      annotations:
+        prometheus.io/scrape: "false"  # Nginx não expõe métricas por padrão
+    spec:
+      containers:
+      - name: web-public
+        image: bgc/bgc-web-public:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 3100
+          name: http
+          protocol: TCP
+
+        envFrom:
+        - configMapRef:
+            name: web-public-config
+
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3100
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3100
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: bgc-web-public
+  namespace: data
+  labels:
+    app: bgc-web-public
+    tier: frontend
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3100
+    targetPort: 3100
+    protocol: TCP
+    name: http
+  selector:
+    app: bgc-web-public
+
+---
+# Ingress (Traefik)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: bgc-web-public-ingress
+  namespace: data
+  labels:
+    app: bgc-web-public
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+    traefik.ingress.kubernetes.io/router.middlewares: data-compress@kubernetescrd,data-security-headers@kubernetescrd
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+  - hosts:
+    - www.brasilglobal.com
+    - brasilglobal.com
+    secretName: brasilglobal-tls
+
+  rules:
+  # Produção
+  - host: www.brasilglobal.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: bgc-web-public
+            port:
+              number: 3100
+
+  - host: brasilglobal.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: bgc-web-public
+            port:
+              number: 3100
+
+  # Desenvolvimento local
+  - host: web-public.bgc.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: bgc-web-public
+            port:
+              number: 3100
+
+---
+# HorizontalPodAutoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: bgc-web-public-hpa
+  namespace: data
+  labels:
+    app: bgc-web-public
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: bgc-web-public
+  minReplicas: 2
+  maxReplicas: 5
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 25
+        periodSeconds: 60
+      selectPolicy: Min
+
+---
+# Middleware para compressão (Traefik)
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: compress
+  namespace: data
+spec:
+  compress: {}
+
+---
+# Middleware para security headers (Traefik)
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+  namespace: data
+spec:
+  headers:
+    customResponseHeaders:
+      X-Frame-Options: "SAMEORIGIN"
+      X-Content-Type-Options: "nosniff"
+      X-XSS-Protection: "1; mode=block"
+      Referrer-Policy: "strict-origin-when-cross-origin"
+      Permissions-Policy: "geolocation=(), microphone=(), camera=()"
+    stsSeconds: 31536000
+    stsIncludeSubdomains: true
+    stsPreload: true

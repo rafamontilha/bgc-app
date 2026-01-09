@@ -1,0 +1,193 @@
+# Connector: ComexStat - API de Dados de Comércio Exterior
+# Fornece dados de exportação e importação do Brasil
+# 🔥 CACHE MULTINÍVEL HABILITADO (L1+L2+L3)
+
+id: comexstat
+name: ComexStat - Comércio Exterior Brasil
+version: 1.0.0
+provider: MDIC - Ministério do Desenvolvimento, Indústria e Comércio
+
+integration:
+  type: rest_api
+  protocol: https
+
+  # Autenticação via API Key (via Sealed Secret)
+  auth:
+    type: api_key
+    api_key:
+      header_name: X-API-Key
+      key_ref: comexstat-credentials/api-key  # K8s Secret
+
+  endpoints:
+    # Exportação por mês
+    exportacao_mes:
+      method: POST
+      path: /api/exp/{ano}/{mes}
+      timeout: 30s
+
+      headers:
+        Accept: application/json
+        Content-Type: application/json
+
+      path_params:
+        - name: ano
+          type: integer
+          required: true
+          pattern: "^(2020|2021|2022|2023|2024|2025)$"
+        - name: mes
+          type: integer
+          required: true
+          pattern: "^(0?[1-9]|1[0-2])$"
+
+      body:
+        content_type: application/json
+        template: |
+          {
+            "co_ano": {{ano}},
+            "co_mes": {{mes}},
+            "no_pais_destino": null,
+            "co_ncm": null
+          }
+
+      response:
+        success_status: [200]
+        error_status: [400, 401, 403, 404, 429, 500]
+
+        # Mapeamento de campos
+        mapping:
+          data: $.data
+          total_records: $.total
+          page: $.page
+
+    # Importação por mês
+    importacao_mes:
+      method: POST
+      path: /api/imp/{ano}/{mes}
+      timeout: 30s
+
+      headers:
+        Accept: application/json
+        Content-Type: application/json
+
+      path_params:
+        - name: ano
+          type: integer
+          required: true
+        - name: mes
+          type: integer
+          required: true
+
+      body:
+        content_type: application/json
+        template: |
+          {
+            "co_ano": {{ano}},
+            "co_mes": {{mes}},
+            "no_pais_origem": null,
+            "co_ncm": null
+          }
+
+      response:
+        success_status: [200]
+        error_status: [400, 401, 403, 404, 429, 500]
+
+        mapping:
+          data: $.data
+          total_records: $.total
+          page: $.page
+
+  # Resiliência - CRITICAL (ComexStat tem rate limit rígido)
+  resilience:
+    retry:
+      max_attempts: 3
+      backoff: exponential
+      initial_interval: 2s
+      max_interval: 10s
+
+    circuit_breaker:
+      failure_threshold: 3
+      success_threshold: 2
+      timeout: 2m  # 2 minutos de espera após abrir
+
+    rate_limit:
+      requests_per_minute: 4  # Margem de segurança (limite real: 300/hora = 5/min)
+      burst: 2
+
+  # 🔥 Cache MULTINÍVEL - MÁXIMA AGRESSIVIDADE
+  # Meta: Hit rate 98% | Reduzir 1000 req/dia → 20 req/dia
+  cache:
+    enabled: true
+    # TTL diferenciado:
+    # - Dados históricos (ano < atual): 7 dias (dados não mudam)
+    # - Mês atual: 6h (dados podem ser atualizados)
+    # - Implementar lógica dinâmica no código
+    ttl: 168h  # 7 dias (padrão para histórico)
+    key_pattern: "comexstat:exp:{ano}:{mes}:{ncm}:{pais}"
+
+# Ambientes
+environments:
+  development:
+    base_url: https://api.comexstat.mdic.gov.br
+    health_check: /api/health
+
+  production:
+    base_url: https://api.comexstat.mdic.gov.br
+    health_check: /api/health
+
+# Compliance - Dados PÚBLICOS mas com restrições de uso
+compliance:
+  tags:
+    - MDIC
+    - Dados-Publicos
+    - Comercio-Exterior
+  data_classification: public
+  retention_days: 365  # 1 ano de histórico em cache
+  encryption_required: false
+
+# Governança
+governance:
+  owner_team: data-team
+  approved_by: tech-lead
+  last_audited: 2025-01-21
+  review_frequency: quarterly
+
+# Observabilidade
+observability:
+  metrics_enabled: true
+  tracing_enabled: true
+  log_level: info
+
+  # Alertas específicos
+  alerts:
+    - type: error_rate
+      threshold: "5%"
+      window: 5m
+      channels: [slack-data-team, pagerduty]
+
+    - type: latency
+      threshold: "5s"
+      window: 5m
+      channels: [slack-data-team]
+
+    - type: availability
+      threshold: "95%"
+      window: 10m
+      channels: [slack-data-team, pagerduty]
+
+# 📝 NOTAS DE IMPLEMENTAÇÃO
+#
+# Cache Strategy:
+# - L1 (Ristretto): 100MB, LFU eviction, TTL 5min
+# - L2 (Redis): Compartilhado entre pods, TTL 7 dias (histórico) | 6h (mês atual)
+# - L3 (PostgreSQL): Materialized view `mv_comexstat_top_destinations`
+# - Request Coalescing: Agrupa requests idênticas em 10s window
+#
+# Rate Limiting:
+# - ComexStat: 300 req/hour (oficial)
+# - Nossa config: 4 req/min com burst 2 (margem de segurança)
+# - Com cache 98%, esperamos < 20 req/dia ao ComexStat
+#
+# TTL Dinâmico (implementar no código):
+# - Se ano < ano_atual: TTL = 7 dias (dados históricos imutáveis)
+# - Se ano == ano_atual E mes < mes_atual: TTL = 24h
+# - Se ano == ano_atual E mes == mes_atual: TTL = 6h (dados podem mudar)

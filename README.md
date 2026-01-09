@@ -48,6 +48,42 @@ Plataforma completa de analytics para dados de exportação brasileira com:
 
 ---
 
+## ✨ Epic 4: Export Destination Simulator (NEW!)
+
+**Status:** Backend DEPLOYED | Frontend In Development
+
+### Features
+
+- 🎯 **Destination recommendation** based on weighted scoring algorithm (market size, growth, price, distance)
+- 💰 **Automatic financial estimates** (margin 15-35%, logistics cost, tariff 8-18%, lead time)
+- 🚀 **Performance**: 2-4ms response time (50x better than target)
+- 🔒 **Freemium rate limiting** (5 simulations/day free, unlimited premium)
+- 🌍 **50 countries** with complete metadata and trade data
+- ⚡ **Multi-level cache** (L1 Ristretto + L2 Redis + L3 PostgreSQL)
+
+### Quick Test
+
+```bash
+# Test the simulator API
+curl -X POST http://api.bgc.local/v1/simulator/destinations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ncm": "17011400",
+    "volume_kg": 1000,
+    "max_results": 10
+  }'
+```
+
+### Documentation
+
+- 📖 **API Reference:** [docs/API-SIMULATOR.md](docs/API-SIMULATOR.md)
+- 🗺️ **Product Roadmap:** [docs/PRODUCT-ROADMAP.md](docs/PRODUCT-ROADMAP.md)
+- 📊 **Metrics Dashboard:** [docs/PRODUCT-METRICS.md](docs/PRODUCT-METRICS.md)
+- 🎯 **Product Decisions:** [docs/PRODUCT-DECISIONS.md](docs/PRODUCT-DECISIONS.md)
+- 📚 **Runbook:** [docs/RUNBOOK.md](docs/RUNBOOK.md)
+
+---
+
 ## 📋 Pré-requisitos
 
 ### Para Docker Compose
@@ -170,6 +206,14 @@ bgc-app/
 │   ├── api.yaml                # Deployment API com HPA
 │   ├── web.yaml                # Deployment Web com HPA
 │   ├── integration-gateway/    # Gateway deployment & configs
+│   │   ├── deployment.yaml     # Deployment, Service, HPA
+│   │   ├── configmap.yaml      # Connector configs
+│   │   ├── sealed-secret-*.yaml # Sealed Secrets (Bitnami)
+│   │   └── README-SECRETS.md   # Guia de secrets management
+│   ├── network-policies/       # Network segmentation & isolation
+│   │   ├── bgc-api-netpol.yaml # Policy da API (força uso do Gateway)
+│   │   ├── integration-gateway-netpol.yaml
+│   │   └── README.md           # Guia completo com testes
 │   ├── observability/          # Prometheus, Grafana, Jaeger
 │   ├── postgres-backup-cronjob.yaml
 │   └── mview-refresh-cronjob.yaml
@@ -185,6 +229,11 @@ bgc-app/
 │   ├── CONNECTOR-GUIDE.md      # Guia de integrações externas
 │   ├── DATA-DICTIONARY.md      # Dicionário de dados
 │   ├── IDEMPOTENCY-POLICY.md   # Política de idempotência
+│   ├── API-SIMULATOR.md        # Documentação da API do Simulador
+│   ├── PRODUCT-ROADMAP.md      # Roadmap estratégico de produto
+│   ├── PRODUCT-DECISIONS.md    # Registro de decisões de produto
+│   ├── PRODUCT-METRICS.md      # Métricas e KPIs de produto
+│   ├── NEXT-STEPS.md           # Próximos passos priorizados
 │   └── EPIC-*.md               # Documentação dos épicos
 │
 ├── Makefile                     # Wrapper multiplataforma
@@ -240,7 +289,79 @@ A API segue os princípios de Clean Architecture com separação clara de respon
 
 **Security & Integration:**
 - **Auth**: mTLS (ICP-Brasil), OAuth2, API Key
+- **Secrets**: Kubernetes Secrets API + Sealed Secrets (Bitnami)
+- **Network**: Network Policies (Zero Trust, Least Privilege)
 - **Resilience**: Circuit Breaker, Retry, Rate Limiting
+
+### Arquitetura de Segurança de Rede
+
+O projeto implementa **Defense in Depth** com múltiplas camadas de segurança:
+
+#### Segmentação de Rede (Network Policies)
+
+```
+Internet
+   ↓ (HTTPS/TLS 1.3)
+Ingress Controller
+   ↓
+bgc-api (namespace: data)
+   ├─→ PostgreSQL ✅
+   ├─→ Redis ✅
+   ├─→ Integration Gateway ✅ (ÚNICO caminho para APIs externas)
+   └─→ ❌ BLOQUEADO: Internet direta (porta 443)
+
+Integration Gateway (namespace: data)
+   ├─→ Kubernetes API ✅ (buscar Secrets)
+   ├─→ Redis ✅ (cache L2)
+   ├─→ PostgreSQL ✅ (cache L3)
+   └─→ APIs Externas ✅ (ComexStat, ViaCEP, Receita Federal)
+```
+
+**Princípios Aplicados:**
+- **Zero Trust**: Todo tráfego negado por padrão (`default-deny-all`)
+- **Least Privilege**: Cada pod acessa APENAS o necessário
+- **Network Isolation**: Isolamento completo entre serviços
+- **Forced Gateway Pattern**: API principal OBRIGADA a usar Integration Gateway
+
+**Arquivos:**
+- `k8s/network-policies/` - Todas as policies + guia de testes
+- Ver: `k8s/network-policies/README.md` para troubleshooting
+
+#### Secrets Management
+
+**Fluxo Seguro:**
+```
+Developer → Script (create-sealed-secret) → Sealed Secret (criptografado)
+   → Git (safe to commit) → Kubernetes → Secret (runtime, in-memory)
+```
+
+**Componentes:**
+- **KubernetesSecretStore** (`services/integration-gateway/internal/auth/k8s_secret_store.go`)
+  - Busca secrets via Kubernetes API (`k8s.io/client-go`)
+  - Cache in-memory com TTL de 5 minutos
+  - Thread-safe, backward compatible com env vars
+
+- **Sealed Secrets Controller** (Bitnami)
+  - Secrets criptografados no Git (public-key cryptography)
+  - Descriptografia automática no cluster
+  - Rotação de secrets suportada
+
+**Formato:**
+```yaml
+# Connector YAML
+auth:
+  type: api_key
+  api_key:
+    key_ref: comexstat-credentials/api-key  # secret-name/key-name
+```
+
+**Script de Criação:**
+```bash
+# Criar sealed secret de forma interativa
+./scripts/create-sealed-secret-comexstat.sh
+```
+
+**Ver:** `k8s/integration-gateway/README-SECRETS.md` para guia completo
 
 ---
 
@@ -364,20 +485,46 @@ notepad .env
 
 ### Kubernetes
 
-As credenciais no Kubernetes são gerenciadas via **Sealed Secrets**:
+As credenciais no Kubernetes são gerenciadas via **Sealed Secrets** + **KubernetesSecretStore**:
 
 ```powershell
-# Sealed Secrets controller já instalado
+# 1. Sealed Secrets controller (já instalado)
 kubectl get pods -n kube-system | grep sealed-secrets
 
-# Credenciais criptografadas em: k8s/secrets/
+# 2. Criar sealed secret para ComexStat API
+.\scripts\create-sealed-secret-comexstat.sh
+
+# 3. Aplicar no cluster
+kubectl apply -f k8s/integration-gateway/sealed-secret-comexstat.yaml
+
+# 4. Verificar secret descriptografado
+kubectl get secret comexstat-credentials -n data
+```
+
+### Network Policies
+
+Verificar isolamento de rede:
+
+```powershell
+# Listar policies aplicadas
+kubectl get networkpolicies -n data
+
+# Testar conectividade (deve falhar - API → Internet bloqueada)
+kubectl exec -it deployment/bgc-api -n data -- curl -I https://google.com
+# Esperado: timeout
+
+# Testar Gateway (deve funcionar)
+kubectl exec -it deployment/integration-gateway -n data -- curl -I https://google.com
+# Esperado: 200 OK
 ```
 
 ### Documentação Completa
 
-📖 **Veja o guia completo:** [docs/SECURITY-SECRETS.md](docs/SECURITY-SECRETS.md)
+📖 **Guias Detalhados:**
+- **Secrets**: [k8s/integration-gateway/README-SECRETS.md](k8s/integration-gateway/README-SECRETS.md)
+- **Network Policies**: [k8s/network-policies/README.md](k8s/network-policies/README.md)
 
-**🚨 NUNCA commite credenciais no Git!**
+**🚨 NUNCA commite credenciais em plain text no Git!**
 
 ---
 
@@ -675,12 +822,20 @@ Para mais informações, consulte: https://www.gnu.org/licenses/agpl-3.0.html
 - ✅ Refresh automático de materialized views
 - ✅ CronJobs para automação
 
-### Security
-- ✅ **Go 1.24.9** - Correção de 5 vulnerabilidades críticas
-- ✅ Sealed Secrets para Kubernetes
-- ✅ ConfigMaps e Secrets management
-- ✅ Non-root containers
-- ✅ AGPL v3 license
+### Security & Network Isolation
+- ✅ **Go 1.24.9** - Correção de 5 vulnerabilidades críticas (CVE-2024-*)
+- ✅ **Network Policies** - Zero Trust, Least Privilege, Defense in Depth
+  - Default deny-all no namespace `data`
+  - API bloqueada de acessar internet diretamente
+  - Forced Gateway Pattern para integrações externas
+- ✅ **Kubernetes Secrets API** - KubernetesSecretStore com cache (5min TTL)
+- ✅ **Sealed Secrets (Bitnami)** - Criptografia de secrets para Git
+  - Public-key cryptography
+  - Scripts automatizados (`create-sealed-secret-*.sh`)
+  - Rotação de secrets suportada
+- ✅ **ConfigMaps e Secrets management** - Separação de configuração e credenciais
+- ✅ **Non-root containers** - Princípio de menor privilégio no runtime
+- ✅ **AGPL v3 license** - Garantia de código aberto
 
 ---
 

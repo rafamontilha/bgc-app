@@ -71,3 +71,18 @@ backup*.sql
 # Temporary secrets files
 tmp-secret*
 .secrets/
+
+# ====================================
+# PRODUCT MANAGEMENT - Strategic Planning
+# ====================================
+
+# Product planning and strategy (not for public repo)
+.product/
+
+# Temporary PR drafts (moved to .product/prs/)
+.pr-*.md
+
+# Product analysis and proposals (temporary)
+.product-*.md
+api/bgc-api
+web-public/
