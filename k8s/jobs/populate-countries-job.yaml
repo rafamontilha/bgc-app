@@ -62,7 +62,7 @@ spec:
         env:
         # PostgreSQL connection via Kubernetes Service
         - name: DB_HOST
-          value: postgres.data.svc.cluster.local
+          value: pg-postgresql.data.svc.cluster.local
         - name: DB_PORT
           value: "5432"
         - name: DB_NAME

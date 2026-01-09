@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 )
 
 // RestCountriesResponse representa a resposta da API REST Countries
@@ -196,7 +196,7 @@ func insertCountry(db *sql.DB, country RestCountriesResponse) error {
 		country.Population,
 		country.Flag,
 		currencyCode,
-		languages,
+		pq.Array(languages),
 	)
 
 	return err
