@@ -1,0 +1,188 @@
+# Network Policy para API Principal (bgc-api)
+#
+# Esta policy restringe o tráfego da API apenas para serviços necessários,
+# forçando que integrações externas passem pelo Integration Gateway.
+#
+# Segurança:
+#   - Ingress: Apenas do Ingress Controller e Prometheus
+#   - Egress: DNS, PostgreSQL, Redis, Integration Gateway, Jaeger
+#   - BLOQUEIA: Acesso direto a APIs externas (deve usar Gateway)
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: bgc-api-netpol
+  namespace: data
+  labels:
+    app: bgc-api
+    component: network-security
+  annotations:
+    description: "Network policy for bgc-api - forces external integrations through Integration Gateway"
+    owner: "security-team"
+    last-reviewed: "2025-11-19"
+spec:
+  podSelector:
+    matchLabels:
+      app: bgc-api
+
+  policyTypes:
+  - Ingress
+  - Egress
+
+  # ============================================================================
+  # INGRESS RULES - Quem pode acessar a API
+  # ============================================================================
+  ingress:
+
+  # Regra 1: Ingress Controller (Nginx/Traefik) pode acessar API
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx  # ou traefik
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/component: controller
+    ports:
+    - protocol: TCP
+      port: 8080
+      name: http
+
+  # Regra 2: Prometheus pode scrape métricas
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: observability
+      podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 9090
+      name: metrics
+
+  # Regra 3: Health checks do Kubernetes (kubelet)
+  - from:
+    - namespaceSelector: {}
+      podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8080
+
+  # ============================================================================
+  # EGRESS RULES - Para onde a API pode se conectar
+  # ============================================================================
+  egress:
+
+  # Regra 1: DNS (CoreDNS no kube-system)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+      name: dns-udp
+    - protocol: TCP
+      port: 53
+      name: dns-tcp
+
+  # Regra 2: PostgreSQL (banco de dados principal)
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres
+    ports:
+    - protocol: TCP
+      port: 5432
+      name: postgresql
+
+  # Regra 3: Redis (cache e sessions)
+  - to:
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+      name: redis
+
+  # Regra 4: Integration Gateway (OBRIGATÓRIO para integrações externas)
+  # A API NÃO pode acessar APIs externas diretamente
+  # Deve sempre passar pelo Integration Gateway
+  - to:
+    - podSelector:
+        matchLabels:
+          app: integration-gateway
+    ports:
+    - protocol: TCP
+      port: 8081
+      name: http
+
+  # Regra 5: Jaeger (OpenTelemetry tracing)
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: observability
+      podSelector:
+        matchLabels:
+          app: jaeger
+    ports:
+    - protocol: TCP
+      port: 4317
+      name: otlp-grpc
+    - protocol: TCP
+      port: 4318
+      name: otlp-http
+
+  # ============================================================================
+  # BLOQUEIOS IMPLÍCITOS
+  # ============================================================================
+  # O que NÃO está permitido (bloqueado por padrão):
+  #
+  # ❌ Acesso direto a APIs externas (porta 443 HTTPS)
+  #    - Deve usar Integration Gateway
+  #    - Exceção: Se realmente necessário, adicionar regra explícita
+  #
+  # ❌ Acesso a outros namespaces não listados
+  #    - Princípio de menor privilégio
+  #
+  # ❌ Acesso a outros pods no mesmo namespace não listados
+  #    - Isolamento de serviços
+  #
+  # Para permitir acesso excepcional a APIs externas (não recomendado),
+  # descomentar a regra abaixo:
+  #
+  # - to:
+  #   - namespaceSelector: {}
+  #     podSelector: {}
+  #   ports:
+  #   - protocol: TCP
+  #     port: 443
+  #     name: https
+  #
+  # E adicionar justificativa clara nos annotations
+
+---
+
+# Default Deny Policy para namespace data
+# Garante que qualquer pod sem network policy específica seja bloqueado
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: data
+  labels:
+    component: network-security
+  annotations:
+    description: "Default deny all traffic - pods need explicit network policies"
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+  # Sem regras = nega tudo
+  # Pods precisam de NetworkPolicy explícita para funcionar

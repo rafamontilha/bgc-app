@@ -4,7 +4,9 @@
       "Bash(awk:*)",
       "Bash(kubectl logs:*)",
       "Bash(mkdir:*)",
-      "Bash(kubectl get:*)"
+      "Bash(kubectl get:*)",
+      "Bash(npm install:*)",
+      "Bash(pnpm install)"
     ],
     "deny": [],
     "ask": []

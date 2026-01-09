@@ -13,6 +13,7 @@ import (
 	"bgc-app/internal/api/handlers"
 	"bgc-app/internal/api/middleware"
 	"bgc-app/internal/api/validation"
+	"bgc-app/internal/business/destination"
 	"bgc-app/internal/business/health"
 	"bgc-app/internal/business/market"
 	"bgc-app/internal/business/route"
@@ -34,14 +35,17 @@ func NewServer(cfg *config.AppConfig, db *sql.DB) *Server {
 
 	marketRepo := postgres.NewMarketRepository(db)
 	routeRepo := postgres.NewRouteRepository(db)
+	destinationRepo := postgres.NewDestinationRepository(db)
 
 	marketService := market.NewService(marketRepo, cfg)
 	routeService := route.NewService(routeRepo, weights, tariffs)
 	healthService := health.NewService(cfg, weights, tariffs)
+	destinationService := destination.NewService(destinationRepo)
 
 	marketHandler := handlers.NewMarketHandler(marketService)
 	routeHandler := handlers.NewRouteHandler(routeService)
 	healthHandler := handlers.NewHealthHandler(healthService)
+	simulatorHandler := handlers.NewSimulatorHandler(destinationService)
 
 	// Initialize schema validator
 	schemaDir := filepath.Join(".", "schemas", "v1")
@@ -101,6 +105,13 @@ func NewServer(cfg *config.AppConfig, db *sql.DB) *Server {
 		v1.GET("/market/size", marketHandler.GetMarketSize)
 		v1.GET("/routes/compare", routeHandler.CompareRoutes)
 	}
+
+	// Simulator endpoints with freemium rate limiting
+	freemiumMW := middleware.NewFreemiumRateLimiter(db, middleware.DefaultFreemiumConfig())
+	log.Printf("Freemium rate limiter initialized (5 req/day for free tier)")
+
+	simulator := v1.Group("/simulator")
+	simulator.POST("/destinations", freemiumMW.Middleware(), simulatorHandler.SimulateDestinations)
 
 	// Backwards compatibility: redirect legacy endpoints to v1
 	r.GET("/market/size", func(c *gin.Context) {

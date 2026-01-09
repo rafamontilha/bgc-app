@@ -19,6 +19,21 @@ services:
       retries: 20
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    container_name: bgc_redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
   pgadmin:
     image: dpage/pgadmin4:8
     container_name: bgc_pgadmin
@@ -74,6 +89,27 @@ services:
       - api
     restart: unless-stopped
 
+  web-public:
+    build:
+      context: ../web-public
+      dockerfile: Dockerfile
+    container_name: bgc_web_public
+    environment:
+      VITE_API_URL: "http://bgc-api:8080"
+      VITE_OTEL_ENDPOINT: "http://jaeger:4318/v1/traces"
+    ports:
+      - "3100:3100"
+    depends_on:
+      - api
+      - jaeger
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:3100/health || exit 1"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    restart: unless-stopped
+
   integration-gateway:
     build:
       context: ../services/integration-gateway
@@ -86,6 +122,12 @@ services:
       LOG_LEVEL: ${GATEWAY_LOG_LEVEL:-info}
       PORT: "8081"
       OTEL_EXPORTER_OTLP_ENDPOINT: jaeger:4317
+      # Cache L2 (Redis)
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_DB: "0"
+      CACHE_L1_ENABLED: "true"
+      CACHE_L2_ENABLED: "true"
     ports:
       - "8081:8081"
     volumes:
@@ -102,6 +144,7 @@ services:
     restart: unless-stopped
     depends_on:
       - db
+      - redis
       - jaeger
 
   # Observability Stack
@@ -164,5 +207,6 @@ services:
 volumes:
   db_data: {}
   pgadmin_data: {}
+  redis_data: {}
   prometheus_data: {}
   grafana_data: {}

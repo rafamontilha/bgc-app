@@ -39,6 +39,17 @@ spec:
           value: info
         - name: PORT
           value: "8081"
+        # Cache L2 (Redis)
+        - name: REDIS_ADDR
+          value: redis.data.svc.cluster.local:6379
+        - name: REDIS_PASSWORD
+          value: ""
+        - name: REDIS_DB
+          value: "0"
+        - name: CACHE_L1_ENABLED
+          value: "true"
+        - name: CACHE_L2_ENABLED
+          value: "true"
         volumeMounts:
         - name: connectors-config
           mountPath: /app/config/connectors
