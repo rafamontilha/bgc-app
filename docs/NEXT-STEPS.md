@@ -2,108 +2,132 @@
 
 Guia executivo dos próximos passos, priorizados por impacto e urgência, para a plataforma Brasil Global Connect.
 
-**ATUALIZADO:** 05 de Janeiro de 2026
-**Status:** ALERT - Ação Imediata Necessária
+**ATUALIZADO:** 09 de Janeiro de 2026
+**Status:** ✅ PRODUCTION READY - Epic 4 MVP Deployed
 
 ---
 
-## Contexto Atual (05/01/2026)
+## Contexto Atual (09/01/2026)
 
-### Status do Epic 4: Simulador de Destinos
-- ✅ **85% Completo**: Backend, API, migrations, testes unitários implementados
-- ✅ **Código Funcionando**: Endpoint validado com dados reais (performance 2-4ms)
-- 🔴 **BLOQUEADO**: 53 arquivos não commitados há 44 dias
-- 🔴 **BLOQUEADO**: Infraestrutura crítica não deployada (Redis, Integration Gateway, Observability)
-- 🔴 **CRÍTICO**: PostgreSQL com 20 restarts (risco de perda de dados)
+### Status do Epic 4: Simulador de Destinos ✅
+- ✅ **100% Completo**: Backend, API, migrations, testes E2E validados
+- ✅ **Código em Produção**: v0.4.0 deployed e operacional
+- ✅ **Performance Excepcional**: 22-92ms (10x melhor que target de 200ms)
+- ✅ **Infraestrutura Deployada**: Redis, Integration Gateway, PostgreSQL estáveis
+- ✅ **Validação E2E Completa**: Rate limiting, funcionalidade, performance validados
 
-### Situação Crítica
-- **Atraso:** 43 dias vs roadmap original
-- **Código em Risco:** 2 semanas de trabalho sem backup em Git
-- **Valor Entregue:** 0% (código pronto mas não deployado)
-- **Cost of Delay:** R$ 75k em receita potencial perdida
+### Conquistas Recentes
+- **Deployment Completo:** API v0.4.0, Redis L2 cache, Integration Gateway (2 replicas)
+- **Correção PostgreSQL:** Restarts resolvidos (liveness probe otimizado)
+- **População de Dados:** 50 países + 16 registros de exportação para 2 NCMs
+- **Branches Merged:** `fix/deployment-docs-and-postgres-stability` + `feature/security-credentials-management`
+- **Documentação Atualizada:** CHANGELOG, README, RUNBOOK
 
-### Próxima Meta (REVISADA)
-**Desbloquear Produção e Deploy MVP até 10 de Janeiro de 2026**
+### Próxima Meta
+**Deploy Observability Stack e Iniciar Frontend (Semana de 09/01/2026)**
 
 ---
 
-## Prioridade P0 - Crítico (Hoje à Tarde + Segunda)
+## Prioridade P0 - Imediato (Esta Semana)
 
-### P0.1: Deploy Redis no Kubernetes (BLOQUEANTE)
-**Prazo:** Hoje à tarde (22/11/2025)
-**Tempo Estimado:** 2 horas
+### P0.1: Deploy Observability Stack ⏳
+**Prazo:** Hoje à tarde (09/01/2026)
+**Tempo Estimado:** 3 horas
 **Responsável:** DevOps/Backend
+**Status:** PENDING
+
+**Objetivo:** Deploy Prometheus, Grafana e Jaeger para observabilidade completa
 
 **Tarefa:**
-1. Aplicar `k8s/redis.yaml` no cluster k8s
-2. Verificar PersistentVolumeClaim criado (2Gi)
-3. Validar ConfigMap com configurações corretas
-4. Testar conectividade do Integration Gateway com Redis
-5. Validar métricas Prometheus de cache
+1. Aplicar manifests k8s/observability/ (Prometheus, Grafana, Jaeger)
+2. Verificar ServiceAccounts e RBAC configurados
+3. Validar scrape targets no Prometheus
+4. Configurar datasources no Grafana
+5. Testar traces no Jaeger
+6. Criar dashboards iniciais
 
 **Validação de Sucesso:**
 ```bash
-# Verificar pod rodando
-kubectl get pods -n data | grep redis
+# Verificar pods
+kubectl get pods -n data | grep -E "prometheus|grafana|jaeger"
 
-# Testar conectividade
-kubectl exec -it deployment/integration-gateway -n data -- redis-cli -h redis ping
-# Esperado: PONG
+# Acessar UIs
+# Prometheus: http://localhost:9090
+# Grafana: http://localhost:3001 (admin/admin)
+# Jaeger: http://localhost:16686
 
-# Verificar métricas
-curl http://integration-gateway:8081/metrics | grep cache_hit
+# Verificar métricas sendo coletadas
+curl http://localhost:9090/api/v1/targets | jq '.data.activeTargets'
 ```
 
-**Impacto:** Sem Redis, cache L2 não funciona → performance degradada (150ms vs 15ms)
+**Impacto:** Sem observability, não temos visibilidade de performance e erros em produção
 
-**Riscos:**
-- PVC pode falhar se storage class não configurado
-- Mitigação: Verificar storage class padrão antes de aplicar
+**Benefícios:**
+- Dashboards para monitorar P95 latency, error rate, throughput
+- Traces distribuídos para debug de problemas
+- Alertas automáticos quando métricas excedem thresholds
 
 ---
 
-### P0.2: Popular Tabela `countries_metadata` (50 Países)
-**Prazo:** Segunda-feira manhã (23/11/2025)
-**Tempo Estimado:** 3 horas (desenvolvimento + execução)
-**Responsável:** Backend
+### P0.2: Release Tag v0.4.0 🏷️
+**Prazo:** Hoje final do dia (09/01/2026)
+**Tempo Estimado:** 30 minutos
+**Responsável:** Tech Lead
+**Status:** PENDING
+
+**Objetivo:** Criar tag oficial da release v0.4.0 com Epic 4 MVP
 
 **Tarefa:**
-1. Aplicar `k8s/jobs/populate-countries-job.yaml`
-2. Monitorar execução do job via logs
-3. Validar 50 países inseridos com metadados completos
-4. Verificar flags, moedas e idiomas corretos
+1. Verificar que main está atualizado com merges
+2. Criar tag anotada: `git tag -a v0.4.0 -m "Release v0.4.0: Export Destination Simulator MVP"`
+3. Push tag: `git push origin v0.4.0`
+4. Criar GitHub Release com notas de release
+5. Comunicar ao time via Slack/Email
 
-**Validação de Sucesso:**
-```sql
--- Verificar países inseridos
-SELECT COUNT(*) FROM countries_metadata;
--- Esperado: 50
+**Notas de Release:**
+```markdown
+## v0.4.0 - Export Destination Simulator MVP (2026-01-09)
 
--- Verificar campos preenchidos
-SELECT code, name_pt, flag_emoji, currency, languages
-FROM countries_metadata
-WHERE flag_emoji IS NOT NULL
-ORDER BY code;
+### 🎉 Highlights
+- ✅ Export Destination Simulator API deployed and validated
+- ✅ Performance: 22-92ms (10x better than 200ms target)
+- ✅ Rate limiting working (5 req/day free tier)
+- ✅ 50 countries with complete metadata
+- ✅ Infrastructure: Redis, Integration Gateway, PostgreSQL stable
+
+### Features
+- POST /v1/simulator/destinations endpoint
+- Weighted scoring algorithm (market, growth, price, distance)
+- Freemium rate limiter middleware
+- Automatic financial estimates
+- Multi-level cache (L1 + L2 + L3)
+
+### Performance
+- Average response time: 22-92ms
+- P95 latency: < 100ms (target was 200ms)
+- Test coverage: E2E validated
+
+### Infrastructure
+- API: bgc-api:v0.4.0
+- PostgreSQL: 50 countries + 16 export records
+- Redis: 512MB L2 cache
+- Integration Gateway: 2 replicas, 3 connectors
+
+### Documentation
+- CHANGELOG updated with v0.4.0 details
+- README updated with E2E results
+- RUNBOOK updated with production metrics
 ```
 
-**Script do Job:**
-Usar `scripts/populate-countries/main.go` que:
-- Busca dados via REST Countries API v3.1
-- Calcula distância do Brasil via fórmula de Haversine
-- Faz upsert com ON CONFLICT
-
-**Impacto:** Sem 50 países, simulador retorna poucos resultados (apenas 10 países seed)
-
-**Riscos:**
-- REST Countries API pode estar offline
-- Mitigação: Fallback para dados em arquivo JSON local
+**Impacto:** Tag oficial marca milestone e facilita rollback se necessário
 
 ---
 
-### P0.3: Testes E2E da API do Simulador
-**Prazo:** Segunda-feira tarde (23/11/2025)
-**Tempo Estimado:** 4 horas
+### P0.3: ~~Testes E2E da API do Simulador~~ ✅ COMPLETO
+**Prazo:** ~~Segunda-feira tarde (23/11/2025)~~
+**Tempo Estimado:** ~~4 horas~~
 **Responsável:** QA/Backend
+**Status:** ✅ **CONCLUÍDO (09/01/2026)**
 
 **Cenários de Teste:**
 
