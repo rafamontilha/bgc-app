@@ -8,7 +8,12 @@ export function ApiStatus() {
   useEffect(() => {
     const checkApi = async () => {
       try {
-        const response = await fetch('/healthz', { method: 'GET' });
+        // Check API directly at localhost:8080 (not via Next.js proxy)
+        const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+        const response = await fetch(`${apiUrl}/healthz`, {
+          method: 'GET',
+          cache: 'no-store',
+        });
         if (response.ok) {
           setStatus('online');
         } else {

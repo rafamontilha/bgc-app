@@ -1,9 +1,9 @@
-import { DashboardClient } from '@/components/dashboard/DashboardClient';
+import { HomePage } from '@/components/home/HomePage';
 
 /**
- * Dashboard Page - SSG
- * Página principal do BGC App com filtros TAM/SAM/SOM
+ * Home Page
+ * Main landing page with integrated export destination simulator
  */
 export default function Home() {
-  return <DashboardClient />;
+  return <HomePage />;
 }

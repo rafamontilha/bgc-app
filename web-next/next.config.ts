@@ -57,7 +57,9 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 
   // Output standalone para container Docker otimizado
-  output: 'standalone',
+  // DESABILITADO: Causa erro de symlink no Windows + OneDrive
+  // Reativar apenas para builds Docker em ambiente Linux
+  // output: 'standalone',
 
   // Configurações de imagem
   images: {

@@ -48,6 +48,9 @@ RUN pnpm build
 # ============================================
 FROM node:22-alpine AS runner
 
+# Instalar pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 WORKDIR /app
 
 # Criar usuário não-root
@@ -60,10 +63,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Copiar arquivos necessários do builder
+# Copiar node_modules completos (inclui devDependencies necessárias para next.config.ts)
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+
+# Copiar arquivos buildados
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
 
 # Trocar para usuário não-root
 USER nextjs
@@ -73,7 +80,7 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
 
 # Comando de start
-CMD ["node", "server.js"]
+CMD ["pnpm", "start"]
