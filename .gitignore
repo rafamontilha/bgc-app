@@ -22,6 +22,16 @@ Thumbs.db
 # Logs e artefatos temporários
 *.log
 
+# Claude CLI temporary files
+tmpclaude-*
+nul
+NUL
+*.tmp
+
+# Test artifacts
+test-*.html
+!docs/testing/test-*.html
+
 # Arquivos obsoletos e backups
 old/
 backup/

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Testes E2E - BGC Docker</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007AFF;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .pending {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 300px;
+        }
+        .iframe-container {
+            margin: 20px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Testes E2E - BGC Docker Environment</h1>
+
+    <div class="test-section">
+        <h2>Status dos Serviços</h2>
+        <div id="status"></div>
+        <button onclick="checkServices()">Verificar Serviços</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Teste 1: Acesso à Home Page</h2>
+        <div id="test1-result"></div>
+        <button onclick="testHomePage()">Executar Teste</button>
+        <button onclick="openInNewTab('http://localhost:3000')">Abrir em Nova Aba</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Teste 2: Acesso ao Simulador</h2>
+        <div id="test2-result"></div>
+        <button onclick="testSimulatorPage()">Executar Teste</button>
+        <button onclick="openInNewTab('http://localhost:3000/simulator')">Abrir em Nova Aba</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Teste 3: Integração API - Simulação Completa</h2>
+        <div id="test3-result"></div>
+        <button onclick="testSimulatorAPI()">Executar Teste</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Teste 4: Preview do Frontend</h2>
+        <div class="iframe-container">
+            <iframe id="preview" src="about:blank"></iframe>
+        </div>
+        <button onclick="loadPreview()">Carregar Preview</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Executar Todos os Testes</h2>
+        <button onclick="runAllTests()" style="background: #28a745;">▶ Executar Todos</button>
+    </div>
+
+    <script>
+        function openInNewTab(url) {
+            window.open(url, '_blank');
+        }
+
+        function loadPreview() {
+            document.getElementById('preview').src = 'http://localhost:3000';
+        }
+
+        async function checkServices() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = '<div class="test-result pending">Verificando serviços...</div>';
+
+            const services = [
+                { name: 'Frontend (Next.js)', url: 'http://localhost:3000', type: 'html' },
+                { name: 'API Backend (Go)', url: 'http://localhost:8080/healthz', type: 'json' },
+                { name: 'Simulador Page', url: 'http://localhost:3000/simulator', type: 'html' }
+            ];
+
+            let html = '';
+            for (const service of services) {
+                try {
+                    const response = await fetch(service.url, {
+                        method: 'GET',
+                        mode: 'cors',
+                        cache: 'no-cache'
+                    });
+                    if (response.ok) {
+                        const data = service.type === 'json' ? await response.json() : await response.text();
+                        html += `<div class="test-result success">
+                            ✓ ${service.name}: <strong>OK</strong> (${response.status})
+                            ${service.type === 'json' ? '<pre>' + JSON.stringify(data, null, 2).substring(0, 200) + '</pre>' : ''}
+                        </div>`;
+                    } else {
+                        html += `<div class="test-result error">✗ ${service.name}: Erro ${response.status}</div>`;
+                    }
+                } catch (error) {
+                    html += `<div class="test-result error">✗ ${service.name}: ${error.message}</div>`;
+                }
+            }
+            statusDiv.innerHTML = html;
+        }
+
+        async function testHomePage() {
+            const resultDiv = document.getElementById('test1-result');
+            resultDiv.innerHTML = '<div class="test-result pending">Testando acesso à home page...</div>';
+
+            try {
+                const response = await fetch('http://localhost:3000/', {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const html = await response.text();
+                const hasTitle = html.includes('BGC') || html.includes('Brasil Global Connect');
+                const hasReact = html.includes('__NEXT_DATA__') || html.includes('react');
+
+                if (hasTitle && hasReact) {
+                    resultDiv.innerHTML = `
+                        <div class="test-result success">
+                            ✓ SUCESSO: Home page carregada corretamente
+                            <br>• Status: ${response.status}
+                            <br>• Título BGC encontrado: ${hasTitle}
+                            <br>• Framework React/Next.js: ${hasReact}
+                            <br>• Tamanho: ${(html.length / 1024).toFixed(2)} KB
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="test-result error">✗ FALHA: Conteúdo inesperado na home page</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">✗ ERRO: ${error.message}</div>`;
+            }
+        }
+
+        async function testSimulatorPage() {
+            const resultDiv = document.getElementById('test2-result');
+            resultDiv.innerHTML = '<div class="test-result pending">Testando página do simulador...</div>';
+
+            try {
+                const response = await fetch('http://localhost:3000/simulator', {
+                    method: 'GET',
+                    mode: 'cors',
+                    cache: 'no-cache'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const html = await response.text();
+                const hasSimulator = html.includes('Simulador') || html.includes('simulator');
+                const hasForm = html.includes('form') || html.includes('NCM');
+
+                if (hasSimulator && hasForm) {
+                    resultDiv.innerHTML = `
+                        <div class="test-result success">
+                            ✓ SUCESSO: Página do simulador carregada
+                            <br>• Status: ${response.status}
+                            <br>• Conteúdo do simulador: ${hasSimulator}
+                            <br>• Formulário presente: ${hasForm}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="test-result error">✗ FALHA: Página do simulador incompleta</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="test-result error">✗ ERRO: ${error.message}</div>`;
+            }
+        }
+
+        async function testSimulatorAPI() {
+            const resultDiv = document.getElementById('test3-result');
+            resultDiv.innerHTML = '<div class="test-result pending">Testando integração completa com API...</div>';
+
+            try {
+                // Teste com NCM válido
+                const requestData = {
+                    ncm: "17011400",
+                    volume_kg: 10000,
+                    max_results: 5
+                };
+
+                resultDiv.innerHTML += '<div class="test-result info">📤 Enviando requisição para API...</div>';
+
+                const response = await fetch('http://localhost:8080/v1/simulator/destinations', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(`API retornou ${response.status}: ${errorData.message || 'Erro desconhecido'}`);
+                }
+
+                const data = await response.json();
+
+                // Validações
+                const hasDestinations = data.destinations && data.destinations.length > 0;
+                const hasMetadata = data.metadata && data.metadata.ncm;
+                const firstDestination = data.destinations[0];
+
+                resultDiv.innerHTML = `
+                    <div class="test-result success">
+                        ✓ SUCESSO: Simulação executada com sucesso!
+                        <br><br><strong>📊 Resultados:</strong>
+                        <br>• NCM testado: ${requestData.ncm} (Açúcar de cana)
+                        <br>• Destinos encontrados: ${data.destinations.length}
+                        <br>• Tempo de processamento: ${data.metadata.processing_time_ms}ms
+                        <br>• Cache: ${data.metadata.cache_hit ? 'Sim' : 'Não'}
+                        <br><br><strong>🌍 Primeiro destino recomendado:</strong>
+                        <br>• País: ${firstDestination.country_name} ${firstDestination.flag_emoji}
+                        <br>• Score: ${firstDestination.score.toFixed(2)}
+                        <br>• Demanda: ${firstDestination.demand}
+                        <br>• Tamanho do mercado: $${(firstDestination.market_size_usd / 1000000).toFixed(2)}M
+                        <br>• Margem estimada: ${firstDestination.estimated_margin_pct}%
+                        <br>• Razão: ${firstDestination.recommendation_reason}
+                    </div>
+                    <details>
+                        <summary style="cursor: pointer; margin-top: 10px;">Ver resposta completa da API</summary>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    </details>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="test-result error">
+                        ✗ ERRO na integração com API
+                        <br>Mensagem: ${error.message}
+                        <br><br>Possíveis causas:
+                        <br>• Rate limit atingido (5 consultas/dia)
+                        <br>• API não está rodando
+                        <br>• NCM não tem dados no banco
+                    </div>
+                `;
+            }
+        }
+
+        async function runAllTests() {
+            await checkServices();
+            await new Promise(r => setTimeout(r, 1000));
+            await testHomePage();
+            await new Promise(r => setTimeout(r, 1000));
+            await testSimulatorPage();
+            await new Promise(r => setTimeout(r, 1000));
+            await testSimulatorAPI();
+        }
+
+        // Auto-run status check on load
+        window.addEventListener('load', () => {
+            checkServices();
+        });
+    </script>
+</body>
+</html>
