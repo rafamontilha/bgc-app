@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import { ApiStatus } from "@/components/ui/ApiStatus";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import "./globals.css";
@@ -22,13 +23,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
-      <body className={`${roboto.variable} antialiased`}>
-        <ThemeProvider>
-          {children}
-          <ApiStatus />
-        </ThemeProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="pt-BR">
+        <body className={`${roboto.variable} antialiased`}>
+          <ThemeProvider>
+            {children}
+            <ApiStatus />
+          </ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
