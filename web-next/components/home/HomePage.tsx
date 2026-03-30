@@ -18,7 +18,7 @@ import { Footer } from './Footer';
 export function HomePage(): React.ReactElement {
   const handleLoginClick = useCallback(() => {
     // Navigate to login page
-    window.location.href = '/auth/login';
+    window.location.href = '/login';
   }, []);
 
   const handleGetStarted = useCallback(() => {

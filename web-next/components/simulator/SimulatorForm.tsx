@@ -44,6 +44,8 @@ const simulatorFormSchema = z.object({
 export interface SimulatorFormProps {
   onSubmit: (request: SimulatorRequest) => void;
   isLoading: boolean;
+  /** Optional NCM (8 digits) to pre-fill from onboarding metadata */
+  initialNcm?: string;
 }
 
 interface FormData {
@@ -59,9 +61,10 @@ interface FormErrors {
 export function SimulatorForm({
   onSubmit,
   isLoading,
+  initialNcm,
 }: SimulatorFormProps): React.ReactElement {
   const [formData, setFormData] = useState<FormData>({
-    ncm: '',
+    ncm: initialNcm ?? '',
     volume_kg: '1000',
   });
   const [selectedNCM, setSelectedNCM] = useState<NCMItem | null>(null);

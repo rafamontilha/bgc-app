@@ -1,11 +1,14 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Export Destination Simulator Page
  * Main page that orchestrates all simulator components
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Box, Container, Stack, Divider } from '@mui/material';
 import {
   SimulatorRequest,
@@ -31,6 +34,9 @@ interface SimulatorState {
 }
 
 export default function SimulatorPage(): React.ReactElement {
+  const searchParams = useSearchParams();
+  const initialNcm = searchParams.get('ncm') ?? undefined;
+
   const [state, setState] = useState<SimulatorState>({
     isLoading: false,
     data: null,
@@ -42,7 +48,7 @@ export default function SimulatorPage(): React.ReactElement {
   /**
    * Handle form submission and API call
    */
-  const handleSimulate = async (request: SimulatorRequest): Promise<void> => {
+  const handleSimulate = useCallback(async (request: SimulatorRequest): Promise<void> => {
     setState((prev) => ({
       ...prev,
       isLoading: true,
@@ -104,7 +110,18 @@ export default function SimulatorPage(): React.ReactElement {
         }));
       }
     }
-  };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * Auto-run simulation when arriving from dashboard with a pre-filled NCM
+   */
+  useEffect(() => {
+    if (initialNcm && initialNcm.length === 8) {
+      handleSimulate({ ncm: initialNcm, volume_kg: 1000 });
+    }
+    // intentionally run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
    * Handle retry after error
@@ -158,6 +175,7 @@ export default function SimulatorPage(): React.ReactElement {
           <SimulatorForm
             onSubmit={handleSimulate}
             isLoading={state.isLoading}
+            initialNcm={initialNcm}
           />
 
           {/* Divider between form and results */}

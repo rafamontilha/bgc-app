@@ -14,7 +14,10 @@ import {
   Container,
   Typography,
 } from '@mui/material';
+import { useUser } from '@clerk/nextjs';
 import LoginIcon from '@mui/icons-material/Login';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import { UserMenu } from '@/components/auth/UserMenu';
 
 export interface HeaderProps {
   onLoginClick?: () => void;
@@ -23,12 +26,14 @@ export interface HeaderProps {
 export function Header({
   onLoginClick,
 }: HeaderProps): React.ReactElement {
+  const { isSignedIn, isLoaded } = useUser();
+
   const handleLoginClick = (): void => {
     if (onLoginClick) {
       onLoginClick();
     } else {
       // Default behavior: navigate to login page
-      window.location.href = '/auth/login';
+      window.location.href = '/login';
     }
   };
 
@@ -143,39 +148,69 @@ export function Header({
             </Box>
 
             {/* Auth Buttons */}
-            <Button
-              onClick={handleLoginClick}
-              variant="outlined"
-              sx={{
-                fontWeight: 500,
-                px: 3,
-                borderColor: 'divider',
-                color: 'text.primary',
-                transition: 'all 220ms cubic-bezier(0.32, 0.72, 0, 1)',
-                '&:hover': {
-                  borderColor: 'primary.main',
-                  backgroundColor: 'action.hover',
-                },
-              }}
-              startIcon={<LoginIcon />}
-            >
-              Login
-            </Button>
+            {isLoaded && (
+              <>
+                {isSignedIn ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Button
+                      href="/dashboard"
+                      variant="outlined"
+                      sx={{
+                        fontWeight: 500,
+                        px: 3,
+                        borderColor: 'divider',
+                        color: 'text.primary',
+                        transition: 'all 220ms cubic-bezier(0.32, 0.72, 0, 1)',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                          backgroundColor: 'action.hover',
+                        },
+                      }}
+                    >
+                      Dashboard
+                    </Button>
+                    <UserMenu />
+                  </Box>
+                ) : (
+                  <>
+                    <Button
+                      onClick={handleLoginClick}
+                      variant="outlined"
+                      sx={{
+                        fontWeight: 500,
+                        px: 3,
+                        borderColor: 'divider',
+                        color: 'text.primary',
+                        transition: 'all 220ms cubic-bezier(0.32, 0.72, 0, 1)',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                          backgroundColor: 'action.hover',
+                        },
+                      }}
+                      startIcon={<LoginIcon />}
+                    >
+                      Login
+                    </Button>
 
-            <Button
-              href="/register"
-              variant="contained"
-              sx={{
-                fontWeight: 500,
-                px: 3,
-                transition: 'all 220ms cubic-bezier(0.32, 0.72, 0, 1)',
-                '&:hover': {
-                  backgroundColor: 'primary.dark',
-                },
-              }}
-            >
-              Cadastrar
-            </Button>
+                    <Button
+                      href="/signup"
+                      variant="contained"
+                      sx={{
+                        fontWeight: 500,
+                        px: 3,
+                        transition: 'all 220ms cubic-bezier(0.32, 0.72, 0, 1)',
+                        '&:hover': {
+                          backgroundColor: 'primary.dark',
+                        },
+                      }}
+                      startIcon={<PersonAddIcon />}
+                    >
+                      Cadastrar
+                    </Button>
+                  </>
+                )}
+              </>
+            )}
           </Box>
         </Toolbar>
       </Container>

@@ -62,11 +62,11 @@ spec:
 
         resources:
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 10m      # Nginx servindo estático usa <5m em idle
+            memory: 16Mi  # Nginx em produção usa 3-15MB para arquivos estáticos
           limits:
-            cpu: 500m
-            memory: 512Mi
+            cpu: 100m     # Pico de conexões simultâneas no nginx
+            memory: 64Mi  # 4x o uso real; headroom para builds futuros maiores
 
         livenessProbe:
           httpGet:
@@ -186,7 +186,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: bgc-web-public
-  minReplicas: 2
+  minReplicas: 1  # Site estático aguenta 1 réplica com nginx; escala com tráfego
   maxReplicas: 5
   metrics:
   - type: Resource

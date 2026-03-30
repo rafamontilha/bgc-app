@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Roboto } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import { ApiStatus } from "@/components/ui/ApiStatus";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import "./globals.css";
@@ -10,6 +11,11 @@ const roboto = Roboto({
   display: 'swap',
   variable: '--font-roboto',
 });
+
+// ClerkProvider no layout impede SSG em todas as páginas (exige key em build time).
+// force-dynamic garante que todas as rotas sejam renderizadas sob demanda (SSR/edge),
+// o que é o comportamento correto para um app autenticado.
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: "BGC - Brasil Global Connect",
@@ -22,13 +28,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
-      <body className={`${roboto.variable} antialiased`}>
-        <ThemeProvider>
-          {children}
-          <ApiStatus />
-        </ThemeProvider>
-      </body>
-    </html>
+    <ClerkProvider dynamic>
+      <html lang="pt-BR">
+        <body className={`${roboto.variable} antialiased`}>
+          <ThemeProvider>
+            {children}
+            <ApiStatus />
+          </ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

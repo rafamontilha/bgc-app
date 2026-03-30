@@ -59,11 +59,11 @@ spec:
           readOnly: true
         resources:
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 50m      # Go em idle; cache L1 (Ristretto) é passivo
+            memory: 96Mi  # Go + Ristretto L1 cache em operação usa ~60-80MB
           limits:
-            cpu: 500m
-            memory: 512Mi
+            cpu: 300m     # Processamento de requests externos + circuit breaker
+            memory: 256Mi # Ristretto tem limite configurável; 256Mi é seguro
         livenessProbe:
           httpGet:
             path: /health
@@ -122,7 +122,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: integration-gateway
-  minReplicas: 2
+  minReplicas: 1  # Gateway inicia com 1; HPA escala conforme integrações aumentam
   maxReplicas: 10
   metrics:
   - type: Resource

@@ -21,11 +21,11 @@ spec:
           ports: [{ containerPort: 8080 }]
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 50m      # Go/Gin em idle usa ~5-10m; 50m dá headroom para burst
+              memory: 64Mi  # Go runtime + Gin + OTel usa ~20-40MB em produção
             limits:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 250m     # API sem operações CPU-intensivas não precisa de 500m
+              memory: 256Mi # Headroom 6x sobre o uso real; evita sobreprovisão
           env:
             - { name: DB_HOST, value: pg-postgresql.data.svc.cluster.local }
             - { name: DB_PORT, value: "5432" }
@@ -36,6 +36,11 @@ spec:
                 secretKeyRef:
                   name: pg-postgresql
                   key: postgres-password
+            - name: CLERK_JWKS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: clerk-secrets
+                  key: jwks-url
           readinessProbe:
             httpGet: { path: /healthz, port: 8080 }
             initialDelaySeconds: 3

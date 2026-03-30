@@ -19,8 +19,9 @@ type AppConfig struct {
 	ScopeChapters      []string
 	SOMBase            float64
 	SOMAggressive      float64
-	PartnerWeightsFile string
+	PartnerWeightsFile  string
 	TariffScenariosFile string
+	ClerkJWKSURL       string
 }
 
 type PartnerWeights map[string]map[string]float64
@@ -51,6 +52,7 @@ func LoadConfig() *AppConfig {
 		SOMAggressive:       0.03,
 		PartnerWeightsFile:  getenv("PARTNER_WEIGHTS_FILE", "./config/partners_stub.yaml"),
 		TariffScenariosFile: getenv("TARIFF_SCENARIOS_FILE", "./config/tariff_scenarios.yaml"),
+		ClerkJWKSURL:        getenv("CLERK_JWKS_URL", ""),
 	}
 
 	if v := getenv("SCOPE_CHAPTERS", ""); v != "" {

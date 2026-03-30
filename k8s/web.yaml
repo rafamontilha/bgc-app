@@ -29,8 +29,8 @@ spec:
               value: "1"
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 100m      # Node.js pode ter picos de CPU no SSR; mantém 100m
+              memory: 256Mi  # Mesmo stack Next.js; startup consome ~200-250MB
             limits:
               cpu: 500m
               memory: 512Mi
@@ -92,7 +92,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: bgc-web
-  minReplicas: 2
+  minReplicas: 1  # Legacy: mantém 1 réplica até ser substituído pelo web-next
   maxReplicas: 5
   metrics:
     - type: Resource

@@ -80,8 +80,8 @@ spec:
               key: password
         resources:
           requests:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 50m      # Job Go de curta duração; sem carga contínua
+            memory: 64Mi  # Processo Go de seed de dados usa ~20-30MB
           limits:
-            cpu: 500m
-            memory: 512Mi
+            cpu: 250m     # Burst para queries iniciais de INSERT em batch
+            memory: 128Mi # Job efêmero; não precisa de headroom grande

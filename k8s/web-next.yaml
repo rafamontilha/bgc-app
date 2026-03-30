@@ -27,13 +27,24 @@ spec:
               value: "production"
             - name: NEXT_TELEMETRY_DISABLED
               value: "1"
+            # Clerk Auth — J-AC02: substituir pelo Secret real quando as API keys forem geradas
+            - name: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: clerk-credentials
+                  key: publishable-key
+            - name: CLERK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: clerk-credentials
+                  key: secret-key
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 100m      # Node.js pode ter picos de CPU no SSR; mantém 100m
+              memory: 256Mi  # Next.js 15 + MUI + Clerk consome ~200-250MB no startup
             limits:
-              cpu: 500m
-              memory: 512Mi
+              cpu: 500m      # Mantém 500m para picos de renderização SSR
+              memory: 512Mi  # Adequado para 10 páginas no escopo atual
           readinessProbe:
             httpGet: { path: /api/health, port: 3000 }
             initialDelaySeconds: 5
@@ -92,7 +103,7 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: bgc-web-next
-  minReplicas: 2
+  minReplicas: 1  # MVP: 1 réplica mínima; escala para 5 com carga real
   maxReplicas: 5
   metrics:
     - type: Resource

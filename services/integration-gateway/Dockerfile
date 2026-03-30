@@ -1,7 +1,7 @@
 # Multi-stage build para otimizar tamanho da imagem
 
 # Stage 1: Build
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Instala dependências de build
 RUN apk add --no-cache git ca-certificates

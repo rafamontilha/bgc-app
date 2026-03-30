@@ -66,11 +66,11 @@ spec:
           value: master
         resources:
           requests:
-            cpu: 100m
-            memory: 256Mi
+            cpu: 50m       # Redis em idle usa pouquíssimo CPU
+            memory: 128Mi  # Redis em idle + AOF usa ~50-80MB; 128Mi tem headroom
           limits:
-            cpu: 500m
-            memory: 1Gi
+            cpu: 300m      # Redis é single-thread; 300m é o teto real de utilidade
+            memory: 768Mi  # maxmemory=512mb + 256Mi headroom para AOF e buffers
         volumeMounts:
         - name: redis-data
           mountPath: /data
