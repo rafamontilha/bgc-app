@@ -5,6 +5,14 @@ const isPublicRoute = createRouteMatcher([
   '/',
   '/login(.*)',
   '/signup(.*)',
+  '/sso-callback(.*)', // OAuth callback route
+  '/mapa(.*)',
+  '/conteudos(.*)',
+  '/about(.*)',
+  '/contact(.*)',
+  '/docs(.*)',
+  '/privacy(.*)',
+  '/terms(.*)',
   '/api/health',
   '/api/simulator/destinations', // Allow anonymous simulator usage
 ]);

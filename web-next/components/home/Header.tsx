@@ -14,9 +14,10 @@ import {
   Container,
   Typography,
 } from '@mui/material';
-import { useUser, UserButton } from '@clerk/nextjs';
+import { useUser } from '@clerk/nextjs';
 import LoginIcon from '@mui/icons-material/Login';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import { UserMenu } from '@/components/auth/UserMenu';
 
 export interface HeaderProps {
   onLoginClick?: () => void;
@@ -168,17 +169,7 @@ export function Header({
                     >
                       Dashboard
                     </Button>
-                    <UserButton
-                      afterSignOutUrl="/"
-                      appearance={{
-                        elements: {
-                          avatarBox: {
-                            width: 40,
-                            height: 40,
-                          },
-                        },
-                      }}
-                    />
+                    <UserMenu />
                   </Box>
                 ) : (
                   <>

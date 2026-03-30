@@ -105,6 +105,104 @@ Q4 2024         Q1 2025              Q2 2025              Q3 2025              Q
 
 ---
 
+## J-AC01 — Onboarding First-Time User (EM ANDAMENTO 🚧 — 87.5%)
+
+**Status:** 7/8 dias entregues (Days 1-7 DONE)
+**Ultima Atualizacao:** 2026-03-29
+**Prioridade:** P0 — MVP Beta Blocker
+**Dependencia:** J-AC02 (DONE)
+
+### Entregaveis Concluidos (Days 1-7)
+
+**Dados e Tipos:**
+- Tipos TypeScript: `NcmChapter`, `TradeRegion`, `OnboardingWizardState`, `OnboardingMetadata`
+- 96 capitulos NCM ativos com `defaultNcm8d` (compatibilidade com API Go sem alterar backend)
+- 7 continentes + 35 paises (parceiros comerciais top do Brasil via Comex Stat)
+
+**Wizard de Onboarding:**
+- `OnboardingStep1Ncm.tsx` — autocomplete NCM por codigo e descricao
+- `OnboardingStep2Volume.tsx` — input numerico + quick-select 4 faixas de volume
+- `OnboardingStep3Regions.tsx` — multi-select por continente com chips
+- `OnboardingWelcome.tsx` — tela de conclusao com resumo de perfil
+- `app/onboarding/page.tsx` — wizard completo, stepper MUI, skip, save
+
+**Persistencia:**
+- `app/api/onboarding/route.ts` — API Route server-side para Clerk `publicMetadata` (decisao arquitetural: server-side aumenta seguranca em relacao ao client-side original)
+
+**Dashboard Intelligence:**
+- `DashboardSimulatorPreview.tsx` — card com NCM do onboarding, pre-simulacao, top destinos
+- `app/dashboard/page.tsx` — le `publicMetadata`, exibe preview personalizado ou prompt
+- `app/simulator/page.tsx` — aceita `?ncm=` + auto-executa simulacao no mount
+
+**Tutorial e Nudge:**
+- `OnboardingTutorial.tsx` — modal 4 slides, flag localStorage `TUTORIAL_SEEN_KEY`
+- `OnboardingReminderBanner.tsx` — banner dismissivel, flag `REMINDER_BANNER_DISMISSED_KEY`
+
+**Re-onboarding:**
+- Re-onboarding via `?re=1` com pre-fill do `publicMetadata` e incremento de `onboardingVersion`
+- `app/profile/page.tsx` — secao "Configuracoes de Exportacao" com botao "Alterar" -> `/onboarding?re=1`
+
+**Qualidade:**
+- 51 novos testes TDD adicionados (total: 71/71 passando, 8 suites, 0 falhas)
+- TypeScript: 0 erros em todo o projeto
+- 3 bugs corrigidos (React key warning, Smart CAPTCHA, docker-compose restart policy)
+
+### Pendente (Day 8 — 2026-04-06)
+
+- Polish visual + consistencia de design system
+- `lib/analytics/onboarding.ts` — stubs de eventos AARRR para Mixpanel/Posthog
+- QA manual com checklist completo (staging)
+- Atualizacao de documentacao pos-conclusao
+
+### Impacto no North Star Metric
+
+**Time-to-First-Export-Match:** Estimativa de reducao de ~30 min para ~4-5 min (83-87% de reducao).
+Mecanismo: NCM no wizard -> `publicMetadata` -> `DashboardSimulatorPreview` pre-carregado -> link `/simulator?ncm=XX` com simulacao auto-executada.
+
+---
+
+## J-AC02 — Sistema de Autenticação com Clerk (COMPLETO ✅)
+
+**Status:** DONE (100%) — Frontend + Backend completos
+**Última Atualização:** 2026-03-29
+**Prioridade:** P0 — MVP Beta Blocker
+**Sessão de Conclusão:** 2026-03-29
+
+### Entregáveis Concluídos (Frontend — web-next)
+
+- ✅ `app/login/page.tsx` — Página de login customizada com Clerk hooks + MUI v7 (email/senha + OAuth Google + recuperação por código)
+- ✅ `app/signup/page.tsx` — Cadastro customizado com verificação de email por código OTP
+- ✅ `app/sso-callback/page.tsx` — Callback OAuth (Google SSO)
+- ✅ `components/auth/UserMenu.tsx` — Menu de usuário com MUI (substituição do UserButton do Clerk)
+- ✅ `app/layout.tsx` — `<ClerkProvider dynamic>` + `export const dynamic = 'force-dynamic'` (compatibilidade SSR)
+- ✅ `middleware.ts` — Rotas protegidas configuradas; rotas públicas explicitadas
+- ✅ `__tests__/` — 20 testes unitários passando (incluindo fix de TypeScript em NODE_ENV)
+- ✅ Páginas placeholder criadas: `/mapa`, `/conteudos`, `/about`, `/contact`, `/docs`, `/privacy`, `/terms`
+- ✅ Login email/senha validado manualmente no browser; redirecionamento pós-auth para `/dashboard` funcionando
+
+### Entregáveis Concluídos (Backend — api Go)
+
+- ✅ `api/internal/api/middleware/auth.go` — `ClerkAuth` struct com `jwksCache` (TTL 1h, renovação automática, thread-safe com `sync.RWMutex`); `Middleware()` valida JWT RS256 via JWKS do Clerk, seta `user_id` e `user_email` no contexto Gin, retorna 401 se ausente/inválido/expirado; `OptionalMiddleware()` extrai user do JWT se presente mas não rejeita se ausente (freemium simulator); parsing manual de chaves RSA a partir do formato JWKS sem dependências pesadas; dependência: `github.com/golang-jwt/jwt/v5 v5.3.1`
+- ✅ `api/internal/api/middleware/auth_test.go` — 13 testes unitários (token válido → 200; token ausente → 401; token expirado → 401; assinatura com chave errada → 401; kid desconhecido → 401; token malformado → 401; OptionalMiddleware sem token → passa; OptionalMiddleware token válido → seta user_id; OptionalMiddleware token inválido → passa; cache JWKS não refaz HTTP dentro do TTL; cache JWKS renova após expirar)
+- ✅ `api/internal/config/config.go` — campo `ClerkJWKSURL string`, env var `CLERK_JWKS_URL` com fallback vazio (JWT bypass em dev sem Clerk)
+- ✅ `api/internal/app/server.go` — `/v1/market/*` e `/v1/routes/*` protegidos com `clerkAuth.Middleware()` (JWT obrigatório se `CLERK_JWKS_URL` configurado); `/v1/simulator/destinations` com `clerkAuth.OptionalMiddleware()` + freemium rate limiter; bypass automático em dev quando `CLERK_JWKS_URL=""`
+- ✅ `bgcstack/docker-compose.yml` — `CLERK_JWKS_URL: "${CLERK_JWKS_URL:-}"` no serviço api
+- ✅ `k8s/api.yaml` — `CLERK_JWKS_URL` via `secretKeyRef: clerk-secrets/jwks-url`
+
+### Definition of Done (J-AC02 — Completo)
+
+- [x] Frontend: Login, signup, SSO callback, UserMenu, middleware rotas
+- [x] Testes unitários frontend (20 testes)
+- [x] Middleware JWT em Go (`auth.go`) — RS256, JWKS cache TTL 1h, thread-safe
+- [x] Integração middleware nas rotas protegidas do server.go
+- [x] Variável `CLERK_JWKS_URL` no config + docker-compose + k8s secrets
+- [x] Testes unitários backend: 13 testes passando (`go test ok bgc-app/internal/api/middleware`)
+- [x] Compilação limpa: `go build ./...` sem erros
+
+**Effort Real:** 12 dias (estimativa original: 12d) — dentro do planejado
+
+---
+
 ## Q1 2025 - Export Intelligence MVP (EM ANDAMENTO 🚧)
 
 ### Epic 4: Simulador de Destinos de Exportação
@@ -540,6 +638,30 @@ Usamos **RICE Framework** para priorizar features:
 
 ## Changelog do Roadmap
 
+**2026-03-29 (J-AC01 Days 1-7 concluidos):**
+- J-AC01: 87.5% completo (7/8 dias entregues)
+- Wizard de 3 passos completo (NCM, Volume, Regioes) + tela de boas-vindas
+- Persistencia server-side via Clerk `publicMetadata` (API Route)
+- DashboardSimulatorPreview com pre-carregamento baseado no NCM do onboarding
+- Tutorial modal 4 slides + banner de lembrete para usuarios que pularam
+- Re-onboarding via `?re=1` com pre-fill e versionamento
+- 71/71 testes passando (51 novos TDD), TypeScript 0 erros, 3 bugs corrigidos
+- NSM Impact: Time-to-First-Export-Match estimado de ~30min -> ~4-5min (83-87% reducao)
+- Day 8 pendente: polish visual, analytics stubs, QA staging
+
+**2026-03-29 (Sessao de Conclusao J-AC02):**
+- J-AC02 DONE (100%): Backend JWT concluido (auth.go, auth_test.go, config.go, server.go, docker-compose, k8s/api.yaml)
+- 13 testes unitarios Go passando + 20 testes TypeScript sem regressao
+- Endpoints /v1/market/* e /v1/routes/* protegidos com JWT RS256 obrigatorio
+- Endpoint /v1/simulator/destinations com OptionalMiddleware (freemium anonimo preservado)
+- JWKS cache TTL 1h thread-safe implementado; bypass de auth em dev via CLERK_JWKS_URL=""
+- K8s Secret clerk-secrets configurado para staging/prod
+- Proximo P0: J-AC01 (Onboarding First-Time User)
+
+**2026-03-29 (Sessao Anterior):**
+- J-AC02 adicionado ao roadmap: Frontend 100% completo, Backend JWT pendente
+- Avaliacao de risco de seguranca dos endpoints Go desprotegidos documentada
+
 **2025-11-22:**
 - Epic 4 atualizado: 85% completo, pendências documentadas
 - Adicionadas métricas técnicas atingidas
@@ -554,7 +676,7 @@ Usamos **RICE Framework** para priorizar features:
 
 ---
 
-**Versão:** 2.0
-**Última Atualização:** 2025-11-22 (Manhã)
+**Versão:** 2.1
+**Última Atualização:** 2026-03-29
 **Responsável:** BGC Product Management Team
-**Próxima Revisão:** 2025-11-25 (Sprint Planning)
+**Próxima Revisão:** 2026-04-05 (Sprint Planning)

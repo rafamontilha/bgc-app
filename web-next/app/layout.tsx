@@ -12,6 +12,11 @@ const roboto = Roboto({
   variable: '--font-roboto',
 });
 
+// ClerkProvider no layout impede SSG em todas as páginas (exige key em build time).
+// force-dynamic garante que todas as rotas sejam renderizadas sob demanda (SSR/edge),
+// o que é o comportamento correto para um app autenticado.
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: "BGC - Brasil Global Connect",
   description: "Dashboard TAM / SAM / SOM - Sistema de analytics para dados de exportação brasileira",
@@ -23,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider dynamic>
       <html lang="pt-BR">
         <body className={`${roboto.variable} antialiased`}>
           <ThemeProvider>

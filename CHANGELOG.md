@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-30
+
+### Added — J-AC01: Onboarding First-Time User
+
+#### Wizard de Onboarding (3 passos)
+- `app/onboarding/page.tsx` — wizard completo com stepper, progresso linear, navegação e skip
+- `components/onboarding/OnboardingStep1Ncm.tsx` — autocomplete de capítulo NCM (96 opções, Comex Stat 2024)
+- `components/onboarding/OnboardingStep2Volume.tsx` — input de volume mensal com quick-select por faixa
+- `components/onboarding/OnboardingStep3Regions.tsx` — multi-select de regiões/países por continente com "selecionar tudo"
+- `components/onboarding/OnboardingWelcome.tsx` — tela de conclusão com resumo do perfil configurado
+- `app/api/onboarding/route.ts` — API route server-side que persiste em `user.publicMetadata` via Clerk Backend SDK
+
+#### Re-onboarding
+- Suporte a `?re=1` no wizard: pré-preenche estado com metadata existente e incrementa `onboardingVersion`
+- `app/profile/page.tsx` — nova seção "Configurações de Exportação" com NCM atual e botão "Alterar" → `/onboarding?re=1`
+
+#### Integração no Dashboard
+- `components/dashboard/DashboardSimulatorPreview.tsx` — card personalizado com NCM do onboarding, botão "Simular meu produto" → `/simulator?ncm=<8d>`
+- `app/dashboard/page.tsx` — lê `publicMetadata`, exibe preview personalizado ou prompt de onboarding
+- `app/simulator/page.tsx` — aceita `?ncm=` via `useSearchParams` e auto-executa simulação no mount
+- `components/simulator/SimulatorForm.tsx` — prop `initialNcm` para pré-preenchimento
+
+#### Tutorial e Reminder
+- `components/onboarding/OnboardingTutorial.tsx` — modal 4 slides (localStorage `bgc_tutorial_seen`), exibido uma vez após primeiro onboarding
+- `components/onboarding/OnboardingReminderBanner.tsx` — banner dismissível para usuários que pularam (localStorage `bgc_profile_banner_dismissed`)
+
+#### Dados e Tipos
+- `lib/types/onboarding.ts` — interfaces: `NcmChapter`, `TradeRegion`, `OnboardingWizardState`, `OnboardingMetadata`
+- `lib/data/ncm-chapters.ts` — 96 capítulos NCM ativos com `defaultNcm8d` (8 dígitos, representativo por volume)
+- `lib/data/trade-regions.ts` — 7 continentes + 35 países (top parceiros comerciais do Brasil, Comex Stat 2024)
+
+#### Auth — J-AC02 completado
+- `api/internal/api/middleware/auth.go` — middleware JWT com validação JWKS do Clerk (RSA, cache TTL, bypass dev)
+- `api/internal/config/config.go` — env `CLERK_JWKS_URL`
+- Rotas premium (`/market/size`, `/routes/compare`) protegidas; simulador com `OptionalMiddleware`
+- `k8s/api.yaml` — secret `clerk-secrets/jwks-url` adicionado
+- `bgcstack/docker-compose.yml` — `CLERK_JWKS_URL` no serviço api
+
+#### Bug fixes
+- React key spread warning no `Autocomplete` `renderOption` (MUI v7 + React 19)
+- `<div id="clerk-captcha" />` ausente nas páginas de login e signup (Clerk Smart CAPTCHA custom flow)
+- `bgc_api` sem `restart: unless-stopped` no docker-compose (container não reiniciava automaticamente)
+
+### Added — Infraestrutura e Novas Rotas
+
+- 7 novas páginas placeholder com `ComingSoonPage`: `/mapa`, `/conteudos`, `/about`, `/contact`, `/docs`, `/privacy`, `/terms`
+- `middleware.ts` — rotas públicas expandidas para cobrir todas as novas páginas
+- `components/ui/ComingSoonPage.tsx` — componente reutilizável de placeholder
+- `components/auth/` — componentes SSO callback
+
+### Removed — Limpeza de dívida técnica
+
+- `components/dashboard/DashboardClient.tsx` — componente órfão (sem importadores), substituído por MUI
+- `hooks/use-market-data.ts` — hook dependente apenas do componente removido
+- `app/routes/page.tsx` + `components/routes/` + hooks `use-routes-data`, `use-scenarios` — feature stub sem navegação, sem testes, não no roadmap próximo (endpoint Go mantido no backend)
+- `components/ui/Button|Card|Input|Select|KpiTile|ErrorMessage` — componentes Tailwind legados sem mais dependentes
+- `docs/archive/` — documentação de 2024 obsoleta (3 arquivos)
+- `cleanup-phase0.sh` — script one-shot já executado
+
+**Resultado:** zero Tailwind remanescente no frontend web-next.
+
+### Tests
+- 51 novos testes TDD adicionados (total: 71 testes, 8 suítes, 0 falhas)
+- Cobertura: dados NCM (13), regiões (14), API route onboarding (6), ReminderBanner (6), Tutorial (7), re-onboarding (4)
+
 ## [0.4.0] - 2026-01-09
 
 ### Added - Epic 4: Export Destination Simulator MVP 🌍

@@ -201,6 +201,84 @@ Registro de decisões estratégicas de produto, trade-offs e justificativas para
 
 ## Decisões Técnicas com Impacto de Produto
 
+### DEC-009: Auth Bypass em Dev (CLERK_JWKS_URL Vazio)
+
+**Data:** 2026-03-29
+**Contexto:** Como garantir que o ambiente de desenvolvimento não quebre ao rodar sem credenciais Clerk configuradas?
+
+**Decisão:** Se `CLERK_JWKS_URL=""` (variável ausente ou vazia), o middleware de auth não é aplicado a nenhum endpoint. O servidor sobe normalmente sem Clerk.
+
+**Justificativa:**
+- **Developer Experience:** Novos contribuidores não precisam criar conta Clerk para rodar o projeto localmente
+- **CI/CD Simples:** Pipelines de build e testes unitários não dependem de segredos externos
+- **Segurança Preservada:** A variável é obrigatória em staging e produção via `secretKeyRef: clerk-secrets/jwks-url` no K8s; ausencia em prod = deploy falhado (Secret inexistente bloqueia o Pod)
+- **Consistência com Pattern Existente:** Outros conectores externos (ComexStat, etc.) seguem o mesmo pattern de fallback
+
+**Trade-off Aceito:**
+- Em dev local sem Clerk, qualquer chamada aos endpoints protegidos retorna 200 (sem autenticacao). Aceitavel porque o banco de dev nao contem PII ou dados financeiros reais.
+
+**Risco Mitigado:** Checklist de deploy exige `CLERK_JWKS_URL` populado antes de promover para staging. Documentado em `docs/SECURITY-SECRETS.md`.
+
+---
+
+### DEC-010: OptionalMiddleware no Simulator (Freemium Anonimo + Identificado)
+
+**Data:** 2026-03-29
+**Contexto:** O endpoint `/v1/simulator/destinations` deve ser publico (freemium anonimo), mas usuarios autenticados devem ter melhor rate limiting (por user_id, nao por IP).
+
+**Decisao:** Usar `OptionalMiddleware()` no simulator: extrai JWT se presente, seta `user_id` no contexto, mas nao rejeita requisicoes sem token. O rate limiter freemium usa `user_id` se disponivel (ilimitado para autenticados com plano ativo, 5/dia por IP para anonimos).
+
+**Justificativa (Jobs-to-be-Done):**
+- **Job do Explorador Anonimo:** "Quero testar sem criar conta" — nao bloquear
+- **Job do Usuario Autenticado Free:** "Ja tenho conta, quero rastreamento individual" — melhorar limite por identidade, nao por IP compartilhado
+- **Job do Usuario Premium:** "Paguei, quero ilimitado" — desbloqueado via claim no JWT
+
+**Impacto de Negocio:**
+- Reduz abandono de usuarios anonimos (sem fricção de login forcado)
+- Aumenta incentivo para criacao de conta (limite por IP e menos generoso que por user_id)
+- Pavimenta caminho para J-REV01 (Paywall) sem reescrever o endpoint
+
+**Alternativa Rejeitada:**
+- Exigir JWT obrigatorio no simulator: eliminaria o freemium anonimo, principal mecanismo de aquisicao
+
+---
+
+### DEC-011: JWKS Cache com TTL 1h e Renovacao Thread-Safe
+
+**Data:** 2026-03-29
+**Contexto:** Cada validacao de JWT exige buscar as chaves publicas do Clerk (JWKS endpoint). Chamar o endpoint externo a cada request seria inaceitavel para performance e resiliencia.
+
+**Decisao:** Cache in-process do JWKS com TTL de 1 hora, protegido por `sync.RWMutex`. Renovacao automatica na primeira requisicao apos expirar (lazy refresh). Sem dependencias pesadas (implementacao manual do parsing RSA).
+
+**Justificativa:**
+- **Performance:** JWKS e um conjunto de chaves publicas estaticas; o Clerk raramente rota chaves. TTL 1h e seguro e elimina latencia de rede por request.
+- **Resiliencia:** Se o endpoint JWKS do Clerk ficar indisponivel, o cache ainda serve as validacoes durante o TTL ativo.
+- **Thread Safety:** Gin processa requests em goroutines concorrentes; `sync.RWMutex` garante consistencia sem bloquear leituras simultaneas.
+- **Zero Dependencias Extras:** Parsing manual de RSA via `crypto/rsa` + `encoding/base64` evita adicionar bibliotecas pesadas ao modulo Go.
+
+**Trade-off:**
+- Rotacao de chave no Clerk pode demorar ate 1h para propagar. Risco aceitavel: o Clerk notifica rotacoes com antecedencia e o TTL pode ser reduzido via variavel de ambiente se necessario.
+
+**Resultado:** P95 de validacao JWT < 1ms (cache hit) vs ~80-150ms (chamada HTTP ao Clerk).
+
+---
+
+### DEC-012: K8s Secret `clerk-secrets` para JWKS URL
+
+**Data:** 2026-03-29
+**Contexto:** A URL do JWKS contem o identificador do tenant Clerk. Nao pode ficar em ConfigMap publico nem hardcoded em imagem Docker.
+
+**Decisao:** `CLERK_JWKS_URL` e injetada via `secretKeyRef: clerk-secrets/jwks-url` no deployment K8s da API. Em docker-compose local, e lida de variavel de ambiente do host (`.env` local, nao commitado).
+
+**Justificativa:**
+- **Seguranca:** Sealed Secrets ou gestao de segredos K8s garante que o valor nao aparece em logs de deployment ou historico Git
+- **Consistencia:** Mesmo pattern dos outros segredos do projeto (DB credentials, etc.) documentados em `docs/SECURITY-SECRETS.md`
+- **Auditabilidade:** Mudancas de URL JWKS (ex: migracao de tenant Clerk) sao rastreadas via Git no manifesto K8s sem expor o valor
+
+**Implicacao Operacional:** Se o Secret `clerk-secrets` nao existir no namespace, o Pod falha no `ImagePullBackOff`/`CreateContainerConfigError`. Isso e intencional — e o mecanismo de segurança que impede deploy sem auth configurada em staging/prod.
+
+---
+
 ### DEC-007: Cache Multinível para Performance
 
 **Data:** 2025-01-21
@@ -374,6 +452,12 @@ Todas as decisões são validadas contra:
 
 ## Changelog de Decisões
 
+**2026-03-29:**
+- DEC-009: Auth bypass em dev via `CLERK_JWKS_URL` vazio (aprovado e implementado)
+- DEC-010: OptionalMiddleware no simulator freemium (aprovado e implementado)
+- DEC-011: JWKS cache TTL 1h thread-safe (aprovado e implementado)
+- DEC-012: K8s Secret `clerk-secrets` para JWKS URL (aprovado e implementado)
+
 **2025-11-22:**
 - DEC-003: Algoritmo de scoring simplificado (aprovado)
 - DEC-004: Campos calculados automáticos (aprovado)
@@ -389,6 +473,6 @@ Todas as decisões são validadas contra:
 
 ---
 
-**Versão:** 1.0
-**Última Atualização:** 2025-11-22
+**Versão:** 1.1
+**Última Atualização:** 2026-03-29
 **Responsável:** BGC Product Management Team

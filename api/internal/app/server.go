@@ -61,6 +61,14 @@ func NewServer(cfg *config.AppConfig, db *sql.DB) *Server {
 	idempotencyMW := middleware.NewIdempotencyMiddleware(24 * time.Hour)
 	log.Printf("Idempotency middleware initialized with 24h TTL")
 
+	// JWT auth middleware (Clerk JWKS)
+	clerkAuth := middleware.NewClerkAuth(cfg.ClerkJWKSURL)
+	if cfg.ClerkJWKSURL == "" {
+		log.Printf("Warning: CLERK_JWKS_URL not set — JWT validation disabled (development only)")
+	} else {
+		log.Printf("Clerk JWT auth enabled (JWKS: %s)", cfg.ClerkJWKSURL)
+	}
+
 	r := gin.Default()
 	r.Use(middleware.CORS())
 	r.Use(middleware.RequestID())
@@ -95,23 +103,32 @@ func NewServer(cfg *config.AppConfig, db *sql.DB) *Server {
 	v1 := r.Group("/v1")
 	v1.Use(idempotencyMW.Handle())
 
-	// Apply validation middleware if validator is available
-	if validator != nil {
-		validationMW := middleware.NewValidationMiddleware(validator)
-		v1.GET("/market/size", validationMW.ValidateMarketSizeRequest(), marketHandler.GetMarketSize)
-		v1.GET("/routes/compare", validationMW.ValidateRouteComparisonRequest(), routeHandler.CompareRoutes)
-	} else {
-		// Fallback to routes without validation
-		v1.GET("/market/size", marketHandler.GetMarketSize)
-		v1.GET("/routes/compare", routeHandler.CompareRoutes)
+	// Protected routes — requerem JWT válido do Clerk.
+	// Se CLERK_JWKS_URL não estiver configurado (dev local sem Clerk), auth é bypassada.
+	premium := v1.Group("")
+	if cfg.ClerkJWKSURL != "" {
+		premium.Use(clerkAuth.Middleware())
 	}
 
-	// Simulator endpoints with freemium rate limiting
+	if validator != nil {
+		validationMW := middleware.NewValidationMiddleware(validator)
+		premium.GET("/market/size", validationMW.ValidateMarketSizeRequest(), marketHandler.GetMarketSize)
+		premium.GET("/routes/compare", validationMW.ValidateRouteComparisonRequest(), routeHandler.CompareRoutes)
+	} else {
+		premium.GET("/market/size", marketHandler.GetMarketSize)
+		premium.GET("/routes/compare", routeHandler.CompareRoutes)
+	}
+
+	// Simulator — público (freemium). JWT é opcional: se presente, rate limiting por user_id.
 	freemiumMW := middleware.NewFreemiumRateLimiter(db, middleware.DefaultFreemiumConfig())
 	log.Printf("Freemium rate limiter initialized (5 req/day for free tier)")
 
 	simulator := v1.Group("/simulator")
-	simulator.POST("/destinations", freemiumMW.Middleware(), simulatorHandler.SimulateDestinations)
+	simulator.POST("/destinations",
+		clerkAuth.OptionalMiddleware(),
+		freemiumMW.Middleware(),
+		simulatorHandler.SimulateDestinations,
+	)
 
 	// Backwards compatibility: redirect legacy endpoints to v1
 	r.GET("/market/size", func(c *gin.Context) {

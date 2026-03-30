@@ -53,15 +53,13 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // Otimizações para SSG
   reactStrictMode: true,
 
-  // Output standalone para container Docker otimizado
-  // DESABILITADO: Causa erro de symlink no Windows + OneDrive
-  // Reativar apenas para builds Docker em ambiente Linux
-  // output: 'standalone',
+  // Standalone output para containers Docker otimizados (~200MB vs ~600MB).
+  // Habilitado via BUILD_STANDALONE=true no Dockerfile (CI/K8s).
+  // Desabilitado por padrão para evitar erros de symlink no Windows + OneDrive.
+  ...(process.env.NEXT_STANDALONE === 'true' && { output: 'standalone' }),
 
-  // Configurações de imagem
   images: {
     unoptimized: true,
   },
