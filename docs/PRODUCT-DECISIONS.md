@@ -56,7 +56,7 @@ Registro de decisões estratégicas de produto, trade-offs e justificativas para
 - ❌ Multi-sided marketplace (exportadores + importadores): Chicken-egg problem, 2x esforço
 - ❌ Foco em grandes empresas: Já têm soluções enterprise, ciclo de venda longo
 
-**Resultado Esperado:** 500 SMEs usando a plataforma em 6 meses (Q2 2025)
+**Nota (2026-04-19):** O projeto é pessoal no momento; sem meta comercial ativa. Esta decisão de foco permanece válida como princípio de design.
 
 ---
 
@@ -84,9 +84,7 @@ Registro de decisões estratégicas de produto, trade-offs e justificativas para
 - Churn rate < 5% ao mês (pro tier)
 - Time-to-value: < 10 minutos (primeira simulação útil)
 
-**Cost of Delay:** Alta (cada mês sem monetização = R$ 50k em receita potencial perdida)
-
-**Resultado Esperado:** 30% dos usuários free batem o limite em 7 dias, 5% convertem para pro
+**Nota (2026-04-19):** Monetização não é prioridade ativa agora (projeto pessoal). O mecanismo de freemium permanece implementado para quando/se houver abertura ao mercado.
 
 ---
 
@@ -380,49 +378,35 @@ Registro de decisões estratégicas de produto, trade-offs e justificativas para
 
 ---
 
-## Próximas Decisões Pendentes
+## Decisões Pendentes
 
-### PENDING-001: Pricing do Tier Premium
+### PENDING-001: Expansão de Cobertura NCM
 
-**Questão:** R$ 99/mês vs R$ 199/mês vs R$ 299/mês?
+**Questão:** Quais capítulos NCM priorizar depois do cap. 17 (Açúcares)?
 
-**Inputs Necessários:**
-- Willingness-to-pay research (Van Westendorp PSM)
-- Análise competitiva (Logcomex, Datawise, ComexDo)
-- Unit economics (CAC, LTV)
+**Proposta atual (ver ROADMAP.md):** cap. 02 (Carnes) e cap. 08 (Frutas) — Bloco 2, mai/2026.
 
-**Deadline:** Semana 3 (antes do lançamento público)
+**Trade-off:** Cobertura ampla vs profundidade de dados por capítulo.
 
 ---
 
-### PENDING-002: Adicionar "Produtos Similares" (NCM Recommendation)
+### PENDING-002: Migração Clerk publicMetadata → PostgreSQL user_profiles (J-AC04)
 
-**Questão:** Recomendar NCMs similares ao que o usuário exporta?
+**Questão:** Quando migrar o storage de perfil do exportador do Clerk para PostgreSQL?
 
-**Trade-off:**
-- 🟢 Aumenta descoberta, cross-sell
-- 🔴 Complexidade técnica (classificação NCM hierárquica)
-- 🔴 Risco de distrair do core job
+**Proposta atual:** Bloco 4 (jun-jul/2026) — após o simulador estar completo.
 
-**Framework Aplicado:** RICE pendente
-
-**Deadline:** Q1 2025
+**Impacto:** Necessário para queries agregadas de perfil e personalização avançada.
 
 ---
 
-### PENDING-003: Integração com Freight Forwarders
+### PENDING-003: Pricing e Abertura ao Mercado
 
-**Questão:** Integrar APIs de empresas de logística para custos reais?
+**Questão:** Se/quando abrir ao mercado, qual o modelo de monetização?
 
-**Trade-off:**
-- 🟢 Custos precisos (vs heurísticas)
-- 🟢 Potencial revenue share com parceiros
-- 🔴 Dependência de terceiros (SLA, disponibilidade)
-- 🔴 Complexidade de múltiplas integrações
+**Status:** Sem deadline. Revisitar quando houver decisão de abertura ao mercado.
 
-**Alternativa:** Marketplace de freight forwarders (leads para parceiros)
-
-**Deadline:** Q2 2025
+**Referência histórica:** Pricing de R$199/mês (Pro) foi definido em DEC-002 como hipótese inicial — validar com pesquisa antes de ativar.
 
 ---
 
@@ -436,8 +420,8 @@ Todas as decisões são validadas contra:
 - **Task Success Rate:** % de usuários que completam o job
 - **Time-to-value:** Tempo até primeira simulação útil
 
-### Métricas de Negócio
-- **Conversion Rate:** Free → Pro (target: 3-5%)
+### Métricas de Negócio (quando/se houver abertura ao mercado)
+- **Conversion Rate:** Free → Pro (referência: 3-5% SaaS B2B)
 - **Churn Rate:** < 5% ao mês (Pro tier)
 - **NPS:** > 50 (promoters > detractors)
 - **CAC Payback:** < 6 meses
@@ -473,6 +457,7 @@ Todas as decisões são validadas contra:
 
 ---
 
-**Versão:** 1.1
-**Última Atualização:** 2026-03-29
-**Responsável:** BGC Product Management Team
+**Versão:** 1.2
+**Última Atualização:** 2026-04-19
+**Responsável:** BGC Product Management
+**Contexto atual:** Projeto pessoal, dev solo. Metas comerciais são referências futuras, não compromissos ativos.

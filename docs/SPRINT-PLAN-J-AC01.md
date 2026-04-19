@@ -1,12 +1,12 @@
 # Sprint Plan — J-AC01: Onboarding de Novo Usuário (First-Time Experience)
 
-**Versao:** 2.0.0
+**Versao:** 2.1.0
 **Data de criacao:** 2026-03-28
-**Ultima Atualizacao:** 2026-03-29
+**Ultima Atualizacao:** 2026-04-19
 **Autor:** BGC Product Management
 **Status:** Em Andamento — Days 1-7 completos (87.5% concluido)
-**Prioridade:** P0 — MVP Beta Blocker
-**Estimativa:** 8 dias uteis
+**Prioridade:** P0
+**Estimativa:** Day 8 pendente (~4h estimadas)
 **Progresso Atual:** 7/8 dias entregues
 **Dependencias:** J-AC02 (DONE — Auth Clerk + JWT middleware Go)
 **North Star Impact:** Critico — reduz Time-to-First-Export-Match de ~30min para ~5min
@@ -36,7 +36,7 @@
 | **Status** | Em Andamento |
 | **Dias Concluidos** | 7 de 8 (87.5%) |
 | **Proxima Entrega** | Day 8 — Polish visual + analytics stubs |
-| **Data Prevista de Conclusao** | 2026-04-06 |
+| **Data Prevista de Conclusao** | Semana de 21/04/2026 (~4h) |
 | **Bugs Corrigidos no Processo** | 3 |
 | **Testes (suite total)** | 71/71 passando, 8 suites, 0 falhas |
 | **Erros TypeScript** | 0 em todo o projeto |
@@ -55,7 +55,7 @@
 | **Day 5** | 2026-03-29 | DONE | `components/dashboard/DashboardSimulatorPreview.tsx`, `app/dashboard/page.tsx` (leitura de publicMetadata + preview ou prompt), `app/simulator/page.tsx` (aceita `?ncm=` + auto-executa), `components/simulator/SimulatorForm.tsx` (prop `initialNcm`) |
 | **Day 6** | 2026-03-29 | DONE | `components/onboarding/OnboardingTutorial.tsx` (modal 4 slides + flag localStorage), `components/onboarding/OnboardingReminderBanner.tsx` (banner dismissivel + flag localStorage) |
 | **Day 7** | 2026-03-29 | DONE | Re-onboarding via `?re=1`, `app/profile/page.tsx` (secao "Configuracoes de Exportacao" + botao "Alterar"), 51 novos testes TDD (total: 71/71), 3 bugs corrigidos |
-| **Day 8** | 2026-04-06 | PENDENTE | Polish visual, analytics stubs em `lib/analytics/onboarding.ts`, documentacao final, QA checklist completo |
+| **Day 8** | Semana 21/04/2026 | PENDENTE | Polish visual, analytics stubs em `lib/analytics/onboarding.ts`, documentacao final, QA checklist completo |
 
 ---
 
@@ -1083,10 +1083,10 @@ Lista para `trade-regions.ts`:
 ---
 
 **Documento criado em:** 2026-03-28
-**Ultima atualizacao:** 2026-03-29 (Days 1-7 concluidos — 87.5%)
-**Proximo review:** 2026-04-06 (Dia 8 — conclusao e DoD final)
+**Ultima atualizacao:** 2026-04-19 (replanejamento — projeto pessoal, cadencia solo)
+**Proximo review:** Semana de 21/04/2026 (Day 8 — conclusao e DoD final, ~4h estimadas)
 **Owner:** BGC Product Management
-**Related tickets:** J-AC01, J-AC02 (dependencia, DONE), J-AC03 (proximo P0 apos conclusao desta sprint)
+**Related tickets:** J-AC01, J-AC02 (dependencia, DONE), J-AC03 (P1 apos conclusao desta sprint)
 
 ### Changelog do Documento
 
@@ -1094,3 +1094,4 @@ Lista para `trade-regions.ts`:
 |------|--------|-----------|
 | 2026-03-28 | 1.0.0 | Documento inicial — sprint plan completo (8 dias) |
 | 2026-03-29 | 2.0.0 | Atualizado com progresso Days 1-7: status de todos os artefatos, suíte de testes (71/71), bugs corrigidos, desvios de escopo documentados, impacto no NSM quantificado, DoD atualizado com checkboxes |
+| 2026-04-19 | 2.1.0 | Replanejamento — projeto pessoal, cadencia solo. Day 8 reagendado para semana de 21/04/2026 (~4h). Removidas metas de "MVP Beta Blocker" comercial. |

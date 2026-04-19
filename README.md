@@ -17,10 +17,21 @@ Plataforma open source de inteligência para exportação, voltada para PMEs bra
 - **Autenticação completa** — Clerk: email/senha, Google OAuth, recuperação de senha, SSO callback
 - **Onboarding personalizado** — wizard 3 passos (produto NCM → volume mensal → regiões-alvo), persiste perfil do exportador
 - **Dashboard adaptado ao perfil** — preview do simulador com NCM do usuário, tutorial interativo no primeiro acesso, banner de reengajamento
-- **Export Destination Simulator** — 50 países, scoring ponderado, estimativas financeiras, freemium 5 req/dia, cache multicamada
+- **Export Destination Simulator** — 50 países no schema, dados ativos para cap. 17 (Açúcares), scoring ponderado, estimativas financeiras, freemium 5 req/dia, cache multicamada
 - **Observabilidade completa** — Prometheus, Grafana, Jaeger (OpenTelemetry), structured logging
 - **Integration Gateway** — framework híbrido para APIs externas (mTLS ICP-Brasil, OAuth2, API Key, Circuit Breaker)
 - **Infraestrutura production-ready** — Docker Compose + Kubernetes (k3d), HPA, backups automáticos, Network Policies Zero Trust
+
+---
+
+## Próximos Passos (ver [docs/ROADMAP.md](docs/ROADMAP.md))
+
+| Bloco | Período | Foco |
+|-------|---------|------|
+| **Bloco 1** | 21/04 → 04/05/2026 | Fechamento J-AC01 Day 8 + limpeza documental |
+| **Bloco 2** | 05/05 → 01/06/2026 | Expansão NCM: cap. 02 (Carnes) + cap. 08 (Frutas) → v0.6.0 |
+| **Bloco 3** | 02/06 → 29/06/2026 | Página `/simulator` dedicada (J-AC03) |
+| **Bloco 4** | 30/06 → 27/07/2026 | Migração perfil Clerk → PostgreSQL (J-AC04) + qualidade técnica |
 
 ---
 
